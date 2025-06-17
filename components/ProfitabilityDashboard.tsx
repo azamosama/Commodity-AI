@@ -1,8 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useCostManagement } from '@/contexts/CostManagementContext';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 export function ProfitabilityDashboard() {
   const { state } = useCostManagement();
+  const [expandedRecipeId, setExpandedRecipeId] = useState<string | null>(null);
+
+  const toggleExpanded = (recipeId: string) => {
+    setExpandedRecipeId(expandedRecipeId === recipeId ? null : recipeId);
+  };
 
   // Calculate total expenses
   const totalExpenses = state.expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -71,17 +77,49 @@ export function ProfitabilityDashboard() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margin</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margin %</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {recipeMargins.map(({ recipe, revenue, totalCost, margin, marginPercent }) => (
-                <tr key={recipe.id} className={margin < 0 ? 'bg-red-50' : marginPercent < 20 ? 'bg-yellow-50' : ''}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{recipe.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${revenue.toFixed(2)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${totalCost.toFixed(2)}</td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${margin < 0 ? 'text-red-600' : 'text-gray-900'}`}>{margin >= 0 ? '+' : ''}${margin.toFixed(2)}</td>
-                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${marginPercent < 20 ? 'text-yellow-700' : 'text-gray-900'}`}>{marginPercent.toFixed(1)}%</td>
-                </tr>
+                <React.Fragment key={recipe.id}>
+                  <tr key={recipe.id} className={margin < 0 ? 'bg-red-50' : marginPercent < 20 ? 'bg-yellow-50' : ''}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{recipe.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${revenue.toFixed(2)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${totalCost.toFixed(2)}</td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${margin < 0 ? 'text-red-600' : 'text-gray-900'}`}>{margin >= 0 ? '+' : ''}${margin.toFixed(2)}</td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${marginPercent < 20 ? 'text-yellow-700' : 'text-gray-900'}`}>{marginPercent.toFixed(1)}%</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => toggleExpanded(recipe.id)}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
+                        {expandedRecipeId === recipe.id ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                      </button>
+                    </td>
+                  </tr>
+                  {expandedRecipeId === recipe.id && (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-4">
+                        <div className="bg-gray-50 p-4 rounded-md">
+                          <h4 className="text-md font-medium mb-2">Ingredient Breakdown for {recipe.name}</h4>
+                          <ul className="list-disc pl-5">
+                            {recipe.ingredients.map((ingredient) => {
+                              const product = state.products.find((p) => p.id === ingredient.productId);
+                              const unitCost = product ? product.cost / (product.quantity * product.packageSize) : 0;
+                              const ingredientCost = unitCost * ingredient.quantity;
+                              return (
+                                <li key={ingredient.productId} className="text-sm text-gray-700">
+                                  {product?.name || 'Unknown Product'}: {ingredient.quantity} {ingredient.unit} @ ${unitCost.toFixed(3)}/{ingredient.unit} = ${ingredientCost.toFixed(2)}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>
