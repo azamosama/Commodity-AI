@@ -4,7 +4,7 @@ import { Product, ProductCategory, CategoryType } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 
 export function ProductEntryForm() {
-  const { dispatch } = useCostManagement();
+  const { dispatch, state } = useCostManagement();
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     quantity: 0,
@@ -14,6 +14,7 @@ export function ProductEntryForm() {
     cost: 0,
     category: 'Food',
     categoryType: 'Fresh Food',
+    unitsPerPackage: 0,
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -32,6 +33,7 @@ export function ProductEntryForm() {
       cost: 0,
       category: 'Food',
       categoryType: 'Fresh Food',
+      unitsPerPackage: 0,
     });
   };
 
@@ -39,9 +41,13 @@ export function ProductEntryForm() {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === 'quantity' || name === 'packageSize' || name === 'cost' 
-        ? parseFloat(value) 
-        : value,
+      [name]:
+        name === 'quantity' ||
+        name === 'packageSize' ||
+        name === 'cost' ||
+        name === 'unitsPerPackage'
+          ? parseFloat(value)
+          : value,
     }));
   };
 
@@ -91,6 +97,15 @@ export function ProductEntryForm() {
             <option value="Beverages">Beverages</option>
             <option value="Supplies">Supplies</option>
             <option value="Equipment">Equipment</option>
+            <option value="Confectionery">Confectionery</option>
+            <option value="Baking Ingredients">Baking Ingredients</option>
+            <option value="Sweets & Snacks">Sweets & Snacks</option>
+            <option value="Frozen Foods">Frozen Foods</option>
+            <option value="Sauces & Condiments">Sauces & Condiments</option>
+            <option value="Oils & Fats">Oils & Fats</option>
+            <option value="Seafood">Seafood</option>
+            <option value="Spices & Seasonings">Spices & Seasonings</option>
+            <option value="Other">Other</option>
           </select>
         </div>
 
@@ -161,6 +176,20 @@ export function ProductEntryForm() {
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
           />
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Units per Package (optional)</label>
+          <input
+            type="number"
+            name="unitsPerPackage"
+            value={formData.unitsPerPackage || ''}
+            onChange={handleChange}
+            min="0"
+            step="1"
+            placeholder="e.g., 20 (strawberries per pack or per lb)"
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+          />
+        </div>
       </div>
 
       <div className="mt-6">
@@ -171,6 +200,39 @@ export function ProductEntryForm() {
           Add Product
         </button>
       </div>
+
+      {/* Product List Table */}
+      {state.products.length > 0 && (
+        <div className="mt-8">
+          <h3 className="text-lg font-medium mb-2">Current Products</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Package Size</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Units/Package</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cost</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {state.products.map((product) => (
+                  <tr key={product.id}>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.categoryType}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.unit}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.packageSize} {product.packageUnit}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.unitsPerPackage || '-'}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">${product.cost}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </form>
   );
 } 

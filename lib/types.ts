@@ -9,6 +9,7 @@ export interface Product {
   category: ProductCategory;
   categoryType: CategoryType;
   supplier?: string;
+  unitsPerPackage?: number;
 }
 
 export interface Recipe {

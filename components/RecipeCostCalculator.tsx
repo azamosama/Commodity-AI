@@ -55,20 +55,41 @@ export function RecipeCostCalculator() {
     setCostAnalysis(calculateCostAnalysis());
   }, [recipe]);
 
+  const getConvertedQuantity = (product: Product | undefined, quantity: number, unit: string) => {
+    if (!product || !product.unitsPerPackage || unit === product.unit) {
+      return { converted: quantity, display: null };
+    }
+    // Assume unitsPerPackage is per product.unit (e.g., 20 strawberries per lb)
+    // If user enters 'count', convert to base unit
+    if (unit.toLowerCase() === 'count' || unit.toLowerCase() === 'strawberry' || unit.toLowerCase() === 'strawberries') {
+      const converted = quantity / product.unitsPerPackage;
+      return { converted, display: `${quantity} strawberries = ${converted.toFixed(3)} ${product.unit}` };
+    }
+    return { converted: quantity, display: null };
+  };
+
   const handleAddIngredient = () => {
     if (!selectedProduct || ingredientQuantity <= 0) return;
-
+    const product = state.products.find((p) => p.id === selectedProduct);
+    let quantity = ingredientQuantity;
+    let unit = ingredientUnit;
+    let displayConversion = null;
+    if (product && product.unitsPerPackage && (unit.toLowerCase() === 'count' || unit.toLowerCase() === 'strawberry' || unit.toLowerCase() === 'strawberries')) {
+      const { converted, display } = getConvertedQuantity(product, ingredientQuantity, unit);
+      quantity = converted;
+      unit = product.unit;
+      displayConversion = display;
+    }
     const newIngredient = {
       productId: selectedProduct,
-      quantity: ingredientQuantity,
-      unit: ingredientUnit,
+      quantity,
+      unit,
+      displayConversion, // custom field for UI only
     };
-
     setRecipe((prev) => ({
       ...prev,
       ingredients: [...(prev.ingredients || []), newIngredient],
     }));
-
     setSelectedProduct('');
     setIngredientQuantity(0);
     setIngredientUnit('');
@@ -201,12 +222,47 @@ export function RecipeCostCalculator() {
                 return (
                   <li key={index} className="text-sm text-gray-600">
                     {product?.name}: {ingredient.quantity} {ingredient.unit}
+                    {('displayConversion' in ingredient) && (ingredient as any).displayConversion && (
+                      <span className="ml-2 text-xs text-gray-500">{(ingredient as any).displayConversion}</span>
+                    )}
                   </li>
                 );
               })}
             </ul>
           </div>
         </div>
+
+        {state.products.filter(p => p.unitsPerPackage).length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-700">Remaining Product Units:</h4>
+            <ul className="mt-2 space-y-1">
+              {state.products.filter(p => p.unitsPerPackage).map(product => {
+                // Calculate total used in all recipes
+                let used = 0;
+                state.recipes.forEach(recipe => {
+                  recipe.ingredients.forEach(ingredient => {
+                    if (ingredient.productId === product.id) {
+                      // If ingredient.unit matches product.unit, convert to count
+                      if (ingredient.unit === product.unit) {
+                        used += ingredient.quantity * (product.unitsPerPackage ?? 0);
+                      } else if (ingredient.unit.toLowerCase() === 'count' || ingredient.unit.toLowerCase() === 'strawberry' || ingredient.unit.toLowerCase() === 'strawberries') {
+                        used += ingredient.quantity;
+                      }
+                    }
+                  });
+                });
+                // Total available
+                const total = product.packageSize * (product.unitsPerPackage ?? 0);
+                const remaining = total - used;
+                return (
+                  <li key={product.id} className="text-xs text-gray-700">
+                    {product.name}: {remaining} remaining out of {total} ({product.unitsPerPackage ?? 0} per {product.unit})
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         {costAnalysis && (
           <div className="border-t pt-4">
@@ -241,6 +297,42 @@ export function RecipeCostCalculator() {
           </button>
         </div>
       </form>
+
+      {/* Recipe List Table */}
+      {state.recipes.length > 0 && (
+        <div className="mt-8">
+          <h3 className="text-lg font-medium mb-2">Current Recipes</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Servings</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ingredients</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {state.recipes.map((rec) => (
+                  <tr key={rec.id}>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{rec.name}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{rec.servings}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                      {rec.ingredients.map((ing, idx) => {
+                        const prod = state.products.find((p) => p.id === ing.productId);
+                        return (
+                          <span key={ing.productId}>
+                            {prod?.name || 'Unknown'}{idx < rec.ingredients.length - 1 ? ', ' : ''}
+                          </span>
+                        );
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
