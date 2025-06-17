@@ -127,17 +127,24 @@ export function InventoryTracker() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Stock</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used In Recipes</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {state.inventory.map((item) => {
                 const product = state.products.find((p) => p.id === item.productId);
+                // Find all recipes that use this product
+                const usedInRecipes = state.recipes
+                  .filter((recipe) => recipe.ingredients.some((ing) => ing.productId === item.productId))
+                  .map((recipe) => recipe.name)
+                  .join(', ');
                 return (
                   <tr key={item.productId}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product?.name || item.productId}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.currentStock}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.unit}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(item.lastUpdated).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{usedInRecipes || '-'}</td>
                   </tr>
                 );
               })}
