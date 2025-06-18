@@ -140,10 +140,14 @@ export function InventoryTracker() {
                   .filter((recipe) => recipe.ingredients.some((ing) => ing.productId === item.productId))
                   .map((recipe) => recipe.name)
                   .join(', ');
+                // Calculate total stock
+                const totalStock = product && product.packageSize && product.unitsPerPackage
+                  ? product.packageSize * product.unitsPerPackage
+                  : '-';
                 return (
                   <tr key={item.productId}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product?.name || item.productId}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.currentStock}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.currentStock} / {totalStock}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.unit}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(item.lastUpdated).toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{usedInRecipes || '-'}</td>
