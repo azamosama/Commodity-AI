@@ -73,13 +73,22 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
         ...state,
         expenses: state.expenses.filter((e) => e.id !== action.payload),
       };
-    case 'UPDATE_INVENTORY':
-      return {
-        ...state,
-        inventory: state.inventory.map((i) =>
-          i.productId === action.payload.productId ? action.payload : i
-        ),
-      };
+    case 'UPDATE_INVENTORY': {
+      const existing = state.inventory.find(i => i.productId === action.payload.productId);
+      if (existing) {
+        return {
+          ...state,
+          inventory: state.inventory.map(i =>
+            i.productId === action.payload.productId ? action.payload : i
+          ),
+        };
+      } else {
+        return {
+          ...state,
+          inventory: [...state.inventory, action.payload],
+        };
+      }
+    }
     case 'ADD_SALE':
       return { ...state, sales: [...state.sales, action.payload] };
     default:
