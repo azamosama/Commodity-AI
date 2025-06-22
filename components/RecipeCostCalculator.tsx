@@ -84,8 +84,15 @@ export function RecipeCostCalculator() {
     const totalCost = ingredients.reduce((sum, ingredient) => {
       const product = state.products.find((p) => p.id === ingredient.productId);
       if (!product) return sum;
-      const unitCost = product.cost / (product.packageSize * (product.unitsPerPackage || 1));
-      return sum + unitCost * ingredient.quantity;
+
+      let quantityInBaseUnit = ingredient.quantity;
+      if (ingredient.unit === 'count' && product.unitsPerPackage && product.packageSize) {
+        // Convert 'count' to the product's base unit (e.g., lbs)
+        quantityInBaseUnit = (ingredient.quantity / product.unitsPerPackage) * product.packageSize;
+      }
+      
+      const costPerBaseUnit = product.cost / product.packageSize;
+      return sum + costPerBaseUnit * quantityInBaseUnit;
     }, 0);
 
     const costPerServing = servings > 0 ? totalCost / servings : 0;
@@ -153,33 +160,44 @@ export function RecipeCostCalculator() {
       <div>
         <h3 className="text-lg font-medium">Ingredients</h3>
         <div className="space-y-4 mt-2">
-          {ingredients.map((ing, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-              <select
-                value={ing.productId}
-                onChange={(e) => handleIngredientChange(index, 'productId', e.target.value)}
-                className="col-span-2 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              >
-                <option value="">Select Product</option>
-                {state.products.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                placeholder="Quantity"
-                value={ing.quantity}
-                onChange={(e) => handleIngredientChange(index, 'quantity', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              />
-              <div className="flex items-center space-x-2">
-                <span>{ing.unit}</span>
+          {ingredients.map((ing, index) => {
+            const selectedProduct = state.products.find(p => p.id === ing.productId);
+            return (
+              <div key={index} className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+                <select
+                  value={ing.productId}
+                  onChange={(e) => handleIngredientChange(index, 'productId', e.target.value)}
+                  className="col-span-2 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                >
+                  <option value="">Select Product</option>
+                  {state.products.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  placeholder="Quantity"
+                  value={ing.quantity}
+                  onChange={(e) => handleIngredientChange(index, 'quantity', e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+                <div className="flex items-center space-x-2">
+                  <select
+                    value={ing.unit}
+                    onChange={(e) => handleIngredientChange(index, 'unit', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    disabled={!selectedProduct}
+                  >
+                    {selectedProduct && <option value={selectedProduct.unit}>{selectedProduct.unit}</option>}
+                    {selectedProduct && selectedProduct.unitsPerPackage && <option value="count">count</option>}
+                  </select>
+                </div>
                 <button type="button" onClick={() => handleRemoveIngredient(index)} className="text-red-500 hover:text-red-700">
                   Remove
                 </button>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         <button
           type="button"
