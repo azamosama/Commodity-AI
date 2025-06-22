@@ -85,14 +85,17 @@ export function RecipeCostCalculator() {
       const product = state.products.find((p) => p.id === ingredient.productId);
       if (!product) return sum;
 
-      let quantityInBaseUnit = ingredient.quantity;
-      if (ingredient.unit === 'count' && product.unitsPerPackage && product.packageSize) {
-        // Convert 'count' to the product's base unit (e.g., lbs)
-        quantityInBaseUnit = (ingredient.quantity / product.unitsPerPackage) * product.packageSize;
+      let ingredientCost = 0;
+      if (ingredient.unit === 'count' && product.unitsPerPackage) {
+        const costPerUnit = product.cost / product.unitsPerPackage;
+        ingredientCost = costPerUnit * ingredient.quantity;
+      } else {
+        // Assumes the ingredient quantity is in the product's base unit (e.g., lb, kg)
+        const costPerBaseUnit = product.cost / product.packageSize;
+        ingredientCost = costPerBaseUnit * ingredient.quantity;
       }
       
-      const costPerBaseUnit = product.cost / product.packageSize;
-      return sum + costPerBaseUnit * quantityInBaseUnit;
+      return sum + ingredientCost;
     }, 0);
 
     const costPerServing = servings > 0 ? totalCost / servings : 0;
