@@ -8,6 +8,9 @@ export function InventoryTracker() {
   const [selectedRecipe, setSelectedRecipe] = useState<string>('');
   const [quantitySold, setQuantitySold] = useState<number>(0);
   const [salePrice, setSalePrice] = useState<number>(0);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editingStock, setEditingStock] = useState<number>(0);
+  const [editingReorderPoint, setEditingReorderPoint] = useState<number>(0);
 
   // Helper to get remaining stock for a product
   const getRemainingStock = (productId: string) => {
@@ -69,6 +72,34 @@ export function InventoryTracker() {
     setSalePrice(0);
   };
 
+  const handleEdit = (item: InventoryItem) => {
+    setEditingItemId(item.productId);
+    setEditingStock(item.currentStock);
+    setEditingReorderPoint(item.reorderPoint);
+  };
+
+  const handleCancel = () => {
+    setEditingItemId(null);
+    setEditingStock(0);
+    setEditingReorderPoint(0);
+  };
+
+  const handleSave = (productId: string) => {
+    const inventory = state.inventory.find((i) => i.productId === productId);
+    if (inventory) {
+      dispatch({
+        type: 'UPDATE_INVENTORY',
+        payload: {
+          ...inventory,
+          currentStock: editingStock,
+          reorderPoint: editingReorderPoint,
+          lastUpdated: new Date(),
+        },
+      });
+      handleCancel();
+    }
+  };
+
   return (
     <div className="space-y-6 p-6 bg-white rounded-lg shadow">
       <h2 className="text-2xl font-bold">Inventory & Sales Tracker</h2>
@@ -127,9 +158,11 @@ export function InventoryTracker() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Stock</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reorder Point</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used In Recipes</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -147,10 +180,33 @@ export function InventoryTracker() {
                 return (
                   <tr key={item.productId}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product?.name || item.productId}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item.currentStock} / {totalStock}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {editingItemId === item.productId ? (
+                        <input type="number" value={editingStock} onChange={(e) => setEditingStock(Number(e.target.value))} className="w-24 rounded-md border-gray-300 shadow-sm" />
+                      ) : (
+                        `${item.currentStock} / ${totalStock}`
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {editingItemId === item.productId ? (
+                        <input type="number" value={editingReorderPoint} onChange={(e) => setEditingReorderPoint(Number(e.target.value))} className="w-24 rounded-md border-gray-300 shadow-sm" />
+                      ) : (
+                        item.reorderPoint
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.unit}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(item.lastUpdated).toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{usedInRecipes || '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {editingItemId === item.productId ? (
+                        <div className="flex items-center space-x-2">
+                          <button onClick={() => handleSave(item.productId)} className="text-green-600 hover:text-green-900">Save</button>
+                          <button onClick={handleCancel} className="text-red-600 hover:text-red-900">Cancel</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => handleEdit(item)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

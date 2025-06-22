@@ -100,21 +100,23 @@ export function ProfitabilityDashboard() {
                   </tr>
                   {expandedRecipeId === recipe.id && (
                     <tr>
-                      <td colSpan={6} className="px-6 py-4">
-                        <div className="bg-gray-50 p-4 rounded-md">
-                          <h4 className="text-md font-medium mb-2">Ingredient Breakdown for {recipe.name}</h4>
-                          <ul className="list-disc pl-5">
-                            {recipe.ingredients.map((ingredient) => {
-                              const product = state.products.find((p) => p.id === ingredient.productId);
-                              const unitCost = product ? product.cost / (product.quantity * product.packageSize) : 0;
-                              const ingredientCost = unitCost * ingredient.quantity;
-                              return (
-                                <li key={ingredient.productId} className="text-sm text-gray-700">
-                                  {product?.name || 'Unknown Product'}: {ingredient.quantity} {ingredient.unit} @ ${unitCost.toFixed(3)}/{ingredient.unit} = ${ingredientCost.toFixed(2)}
-                                </li>
-                              );
-                            })}
-                          </ul>
+                      <td colSpan={6} className="p-4 bg-gray-50">
+                        <h4 className="font-semibold mb-2">Ingredient Breakdown for {recipe.name}</h4>
+                        <ul className="list-disc list-inside">
+                          {recipe.ingredients.map(ingredient => {
+                            const product = state.products.find(p => p.id === ingredient.productId);
+                            if (!product) return null;
+                            const costPerUnit = product.cost / (product.packageSize * (product.unitsPerPackage || 1));
+                            const ingredientCost = ingredient.quantity * costPerUnit;
+                            return (
+                              <li key={ingredient.productId}>
+                                {product.name}: {ingredient.quantity} {product.unit} @ ${costPerUnit.toFixed(3)}/{product.unit} = ${ingredientCost.toFixed(2)}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        <div className="font-bold mt-2">
+                          Total Recipe Cost: ${totalCost.toFixed(2)}
                         </div>
                       </td>
                     </tr>

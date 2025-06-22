@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export function ExpenseTracker() {
   const { state, dispatch } = useCostManagement();
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [expense, setExpense] = useState<Partial<Expense>>({
     name: '',
     amount: 0,
@@ -14,13 +15,13 @@ export function ExpenseTracker() {
     frequency: 'monthly',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newExpense: Expense = {
-      id: uuidv4(),
-      ...expense,
-    } as Expense;
-    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+  const handleEdit = (expenseToEdit: Expense) => {
+    setEditingExpense(expenseToEdit);
+    setExpense(expenseToEdit);
+  };
+
+  const handleCancel = () => {
+    setEditingExpense(null);
     setExpense({
       name: '',
       amount: 0,
@@ -29,6 +30,20 @@ export function ExpenseTracker() {
       recurring: false,
       frequency: 'monthly',
     });
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingExpense) {
+      dispatch({ type: 'UPDATE_EXPENSE', payload: { ...expense, id: editingExpense.id } as Expense });
+    } else {
+      const newExpense: Expense = {
+        id: uuidv4(),
+        ...expense,
+      } as Expense;
+      dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+    }
+    handleCancel();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -51,7 +66,7 @@ export function ExpenseTracker() {
 
   return (
     <div className="space-y-6 p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold">Expense Tracker</h2>
+      <h2 className="text-2xl font-bold">{editingExpense ? 'Edit Expense' : 'Expense Tracker'}</h2>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -137,13 +152,22 @@ export function ExpenseTracker() {
           )}
         </div>
 
-        <div className="mt-6">
+        <div className="mt-6 flex items-center space-x-4">
           <button
             type="submit"
             className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
-            Add Expense
+            {editingExpense ? 'Update Expense' : 'Add Expense'}
           </button>
+          {editingExpense && (
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Cancel
+            </button>
+          )}
         </div>
       </form>
 
@@ -179,6 +203,7 @@ export function ExpenseTracker() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recurring</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -192,6 +217,11 @@ export function ExpenseTracker() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {expense.recurring ? `${expense.frequency}` : 'No'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <button type="button" onClick={() => handleEdit(expense)} className="text-indigo-600 hover:text-indigo-900">
+                      Edit
+                    </button>
                   </td>
                 </tr>
               ))}
