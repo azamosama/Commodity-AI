@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCostManagement } from '@/contexts/CostManagementContext';
 import { Product, ProductCategory, CategoryType } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 export function ProductEntryForm() {
   const { dispatch, state } = useCostManagement();
@@ -77,7 +78,17 @@ export function ProductEntryForm() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Product Name</label>
+          <div className="flex items-center">
+            <label className="block text-sm font-medium text-gray-700">Product Name</label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 cursor-pointer text-gray-400">ℹ️</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>The name of the product (e.g., Strawberries, Chocolate, Cups).</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <input
             type="text"
             name="name"
@@ -89,7 +100,17 @@ export function ProductEntryForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Category</label>
+          <div className="flex items-center">
+            <label className="block text-sm font-medium text-gray-700">Category</label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 cursor-pointer text-gray-400">ℹ️</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>The main category (e.g., Food, Non-Food).</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <select
             name="category"
             value={formData.category}
@@ -102,7 +123,17 @@ export function ProductEntryForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Category Type</label>
+          <div className="flex items-center">
+            <label className="block text-sm font-medium text-gray-700">Category Type</label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 cursor-pointer text-gray-400">ℹ️</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>The type of product (e.g., Fresh Food, Baking Ingredients).</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <select
             name="categoryType"
             value={formData.categoryType}
@@ -130,7 +161,17 @@ export function ProductEntryForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Quantity</label>
+          <div className="flex items-center">
+            <label className="block text-sm font-medium text-gray-700">Quantity</label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 cursor-pointer text-gray-400">ℹ️</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>The number of packages/cases you currently have in inventory. Not used for cost-per-unit calculation.</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <input
             type="number"
             name="quantity"
@@ -144,7 +185,17 @@ export function ProductEntryForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Unit</label>
+          <div className="flex items-center">
+            <label className="block text-sm font-medium text-gray-700">Unit</label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 cursor-pointer text-gray-400">ℹ️</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>The base unit you purchase this product in (e.g., lb, kg, each).</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <input
             type="text"
             name="unit"
@@ -157,7 +208,17 @@ export function ProductEntryForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Package Size</label>
+          <div className="flex items-center">
+            <label className="block text-sm font-medium text-gray-700">Package Size</label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 cursor-pointer text-gray-400">ℹ️</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>The amount of the base unit in one package/case (e.g., 32 lbs in a case).</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <input
             type="number"
             name="packageSize"
@@ -171,7 +232,17 @@ export function ProductEntryForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Package Unit</label>
+          <div className="flex items-center">
+            <label className="block text-sm font-medium text-gray-700">Package Unit</label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 cursor-pointer text-gray-400">ℹ️</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>The packaging type (e.g., case, box, pack).</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <input
             type="text"
             name="packageUnit"
@@ -184,7 +255,17 @@ export function ProductEntryForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Cost</label>
+          <div className="flex items-center">
+            <label className="block text-sm font-medium text-gray-700">Cost</label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 cursor-pointer text-gray-400">ℹ️</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>The total price you pay for one package/case.</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <input
             type="number"
             name="cost"
@@ -198,7 +279,17 @@ export function ProductEntryForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Packs per Case (optional)</label>
+          <div className="flex items-center">
+            <label className="block text-sm font-medium text-gray-700">Packs per Case (optional)</label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 cursor-pointer text-gray-400">ℹ️</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>How many packs are in a single case you purchase (optional, used for auto-calculation).</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <input
             type="number"
             value={packsPerCase}
@@ -210,7 +301,17 @@ export function ProductEntryForm() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Units per Pack (optional)</label>
+          <div className="flex items-center">
+            <label className="block text-sm font-medium text-gray-700">Units per Pack (optional)</label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="ml-1 cursor-pointer text-gray-400">ℹ️</span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <span>How many individual items are in each pack (optional, used for auto-calculation).</span>
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <input
             type="number"
             value={unitsPerPack}
