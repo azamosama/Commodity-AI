@@ -52,12 +52,12 @@ export function ProductEntryForm() {
       dispatch({ type: 'UPDATE_PRODUCT', payload: updatedProduct });
       // Auto-sync inventory if it exists
       const inventoryItem = state.inventory.find(i => i.productId === updatedProduct.id);
-      if (inventoryItem && updatedProduct.unitsPerPackage && updatedProduct.quantity) {
+      if (inventoryItem) {
         dispatch({
           type: 'UPDATE_INVENTORY',
           payload: {
             ...inventoryItem,
-            currentStock: updatedProduct.quantity * updatedProduct.unitsPerPackage,
+            currentStock: updatedProduct.quantity * (updatedProduct.unitsPerPackage || 0),
             lastUpdated: new Date(),
           },
         });
