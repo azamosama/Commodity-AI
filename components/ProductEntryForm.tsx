@@ -46,8 +46,9 @@ export function ProductEntryForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const unitsPerPackageToUse = packsPerCase && unitsPerPack ? Number(packsPerCase) * Number(unitsPerPack) : formData.unitsPerPackage;
     if (editingProduct) {
-      const updatedProduct = { ...formData, id: editingProduct.id } as Product;
+      const updatedProduct = { ...formData, id: editingProduct.id, unitsPerPackage: unitsPerPackageToUse } as Product;
       dispatch({ type: 'UPDATE_PRODUCT', payload: updatedProduct });
       // Auto-sync inventory if it exists
       const inventoryItem = state.inventory.find(i => i.productId === updatedProduct.id);
@@ -65,7 +66,7 @@ export function ProductEntryForm() {
       const newProduct: Product = {
         id: uuidv4(),
         ...formData,
-        unitsPerPackage: calculatedUnitsPerPackage,
+        unitsPerPackage: unitsPerPackageToUse,
       } as Product;
       dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
     }

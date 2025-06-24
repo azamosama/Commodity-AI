@@ -175,8 +175,8 @@ export function InventoryTracker() {
                   .map((recipe) => recipe.name)
                   .join(', ');
                 // Calculate total stock
-                const totalStock = product && product.packageSize && product.unitsPerPackage
-                  ? product.packageSize * product.unitsPerPackage
+                const totalStock = product && product.quantity && product.unitsPerPackage
+                  ? product.quantity * product.unitsPerPackage
                   : '-';
                 return (
                   <tr key={item.productId}>
