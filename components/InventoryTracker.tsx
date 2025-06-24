@@ -39,20 +39,6 @@ export function InventoryTracker() {
             lastUpdated: new Date(),
           },
         });
-      } else {
-        // If not tracked yet, add to inventory with correct initial stock
-        const product = state.products.find((p) => p.id === ingredient.productId);
-        const initialStock = product ? product.packageSize * product.quantity : 0;
-        dispatch({
-          type: 'UPDATE_INVENTORY',
-          payload: {
-            productId: ingredient.productId,
-            currentStock: Math.max(0, initialStock - usedQty),
-            unit: ingredient.unit,
-            reorderPoint: 0,
-            lastUpdated: new Date(),
-          },
-        });
       }
     });
 

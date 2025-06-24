@@ -25,6 +25,8 @@ export function ProductEntryForm() {
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setFormData(product);
+    setPacksPerCase(product.unitsPerPackage && product.packageSize ? product.packageSize : '');
+    setUnitsPerPack(product.unitsPerPackage && product.packageSize ? product.unitsPerPackage / product.packageSize : '');
   };
 
   const handleCancel = () => {
@@ -40,6 +42,8 @@ export function ProductEntryForm() {
       categoryType: 'Fresh Food',
       unitsPerPackage: 0,
     });
+    setPacksPerCase('');
+    setUnitsPerPack('');
   };
 
   const calculatedUnitsPerPackage = packsPerCase && unitsPerPack ? Number(packsPerCase) * Number(unitsPerPack) : undefined;
