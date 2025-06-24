@@ -47,7 +47,20 @@ export function ProductEntryForm() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingProduct) {
-      dispatch({ type: 'UPDATE_PRODUCT', payload: { ...formData, id: editingProduct.id } as Product });
+      const updatedProduct = { ...formData, id: editingProduct.id } as Product;
+      dispatch({ type: 'UPDATE_PRODUCT', payload: updatedProduct });
+      // Auto-sync inventory if it exists
+      const inventoryItem = state.inventory.find(i => i.productId === updatedProduct.id);
+      if (inventoryItem && updatedProduct.unitsPerPackage && updatedProduct.quantity) {
+        dispatch({
+          type: 'UPDATE_INVENTORY',
+          payload: {
+            ...inventoryItem,
+            currentStock: updatedProduct.quantity * updatedProduct.unitsPerPackage,
+            lastUpdated: new Date(),
+          },
+        });
+      }
     } else {
       const newProduct: Product = {
         id: uuidv4(),
