@@ -3,6 +3,7 @@ import { useCostManagement } from '@/contexts/CostManagementContext';
 import { Product, ProductCategory, CategoryType } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Trash } from 'lucide-react';
 
 export function ProductEntryForm() {
   const { dispatch, state } = useCostManagement();
@@ -373,10 +374,16 @@ export function ProductEntryForm() {
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.packageSize} {product.packageUnit}</td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.unitsPerPackage || '-'}</td>
                     <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">${product.cost}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                      <button type="button" onClick={() => handleEdit(product)} className="text-indigo-600 hover:text-indigo-900">
-                        Edit
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <button
+                        type="button"
+                        className="text-red-500 hover:text-red-700 mr-2"
+                        onClick={() => dispatch({ type: 'DELETE_PRODUCT', payload: product.id })}
+                        title="Delete Product"
+                      >
+                        <Trash className="w-4 h-4" />
                       </button>
+                      <button type="button" onClick={() => handleEdit(product)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
                     </td>
                   </tr>
                 ))}

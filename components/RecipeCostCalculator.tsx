@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCostManagement } from '@/contexts/CostManagementContext';
 import { Recipe, RecipeIngredient, Product, CostAnalysis } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
+import { Trash } from 'lucide-react';
 
 export function RecipeCostCalculator() {
   const { state, dispatch } = useCostManagement();
@@ -262,9 +263,15 @@ export function RecipeCostCalculator() {
                         .join(', ')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <button type="button" onClick={() => handleEdit(recipe)} className="text-indigo-600 hover:text-indigo-900">
-                        Edit
+                      <button
+                        type="button"
+                        className="text-red-500 hover:text-red-700 mr-2"
+                        onClick={() => dispatch({ type: 'DELETE_RECIPE', payload: recipe.id })}
+                        title="Delete Recipe"
+                      >
+                        <Trash className="w-4 h-4" />
                       </button>
+                      <button type="button" onClick={() => handleEdit(recipe)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
                     </td>
                   </tr>
                 ))}

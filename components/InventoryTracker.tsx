@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCostManagement } from '@/contexts/CostManagementContext';
 import { InventoryItem, SalesRecord, Product, Recipe } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
+import { Trash } from 'lucide-react';
 
 export function InventoryTracker() {
   const { state, dispatch } = useCostManagement();
@@ -198,6 +199,14 @@ export function InventoryTracker() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(item.lastUpdated).toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{usedInRecipes || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <button
+                        type="button"
+                        className="text-red-500 hover:text-red-700 mr-2"
+                        onClick={() => dispatch({ type: 'DELETE_INVENTORY', payload: item.productId })}
+                        title="Delete Inventory Record"
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
                       {editingItemId === item.productId ? (
                         <div className="flex items-center space-x-2">
                           <button onClick={() => handleSave(item.productId)} className="text-green-600 hover:text-green-900">Save</button>
