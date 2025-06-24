@@ -25,8 +25,8 @@ export function ProductEntryForm() {
   const handleEdit = (product: Product) => {
     setEditingProduct(product);
     setFormData(product);
-    setPacksPerCase(product.unitsPerPackage && product.packageSize ? product.packageSize : '');
-    setUnitsPerPack(product.unitsPerPackage && product.packageSize ? product.unitsPerPackage / product.packageSize : '');
+    setPacksPerCase(product.packsPerCase !== undefined ? product.packsPerCase : '');
+    setUnitsPerPack(product.unitsPerPack !== undefined ? product.unitsPerPack : '');
   };
 
   const handleCancel = () => {
@@ -50,9 +50,17 @@ export function ProductEntryForm() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const unitsPerPackageToUse = packsPerCase && unitsPerPack ? Number(packsPerCase) * Number(unitsPerPack) : formData.unitsPerPackage;
+    const packsPerCaseToUse = packsPerCase !== '' ? Number(packsPerCase) : undefined;
+    const unitsPerPackToUse = unitsPerPack !== '' ? Number(unitsPerPack) : undefined;
+    const unitsPerPackageToUse = packsPerCaseToUse && unitsPerPackToUse ? packsPerCaseToUse * unitsPerPackToUse : formData.unitsPerPackage;
     if (editingProduct) {
-      const updatedProduct = { ...formData, id: editingProduct.id, unitsPerPackage: unitsPerPackageToUse } as Product;
+      const updatedProduct = {
+        ...formData,
+        id: editingProduct.id,
+        packsPerCase: packsPerCaseToUse,
+        unitsPerPack: unitsPerPackToUse,
+        unitsPerPackage: unitsPerPackageToUse,
+      } as Product;
       dispatch({ type: 'UPDATE_PRODUCT', payload: updatedProduct });
       // Auto-sync inventory if it exists
       const inventoryItem = state.inventory.find(i => i.productId === updatedProduct.id);
@@ -70,6 +78,8 @@ export function ProductEntryForm() {
       const newProduct: Product = {
         id: uuidv4(),
         ...formData,
+        packsPerCase: packsPerCaseToUse,
+        unitsPerPack: unitsPerPackToUse,
         unitsPerPackage: unitsPerPackageToUse,
       } as Product;
       dispatch({ type: 'ADD_PRODUCT', payload: newProduct });

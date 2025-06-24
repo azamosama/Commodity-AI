@@ -39,6 +39,19 @@ export function InventoryTracker() {
             lastUpdated: new Date(),
           },
         });
+      } else {
+        const product = state.products.find((p) => p.id === ingredient.productId);
+        const initialStock = product ? product.quantity * (product.unitsPerPackage || 0) : 0;
+        dispatch({
+          type: 'UPDATE_INVENTORY',
+          payload: {
+            productId: ingredient.productId,
+            currentStock: Math.max(0, initialStock - usedQty),
+            unit: ingredient.unit,
+            reorderPoint: 0,
+            lastUpdated: new Date(),
+          },
+        });
       }
     });
 
@@ -153,54 +166,34 @@ export function InventoryTracker() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {state.inventory.map((item) => {
-                const product = state.products.find((p) => p.id === item.productId);
-                // Find all recipes that use this product
+              {state.products.map((product) => {
+                const item = state.inventory.find((i) => i.productId === product.id);
+                const currentStock = item ? item.currentStock : product.quantity * (product.unitsPerPackage || 0);
+                const totalStock = product.quantity * (product.unitsPerPackage || 0);
                 const usedInRecipes = state.recipes
-                  .filter((recipe) => recipe.ingredients.some((ing) => ing.productId === item.productId))
+                  .filter((recipe) => recipe.ingredients.some((ing) => ing.productId === product.id))
                   .map((recipe) => recipe.name)
                   .join(', ');
-                // Calculate total stock
-                const totalStock = product && product.quantity && product.unitsPerPackage
-                  ? product.quantity * product.unitsPerPackage
-                  : '-';
                 return (
-                  <tr key={item.productId}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product?.name || item.productId}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {editingItemId === item.productId ? (
-                        <input type="number" value={editingStock} onChange={(e) => setEditingStock(Number(e.target.value))} className="w-24 rounded-md border-gray-300 shadow-sm" />
-                      ) : (
-                        `${item.currentStock} / ${totalStock}`
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {editingItemId === item.productId ? (
-                        <input type="number" value={editingReorderPoint} onChange={(e) => setEditingReorderPoint(Number(e.target.value))} className="w-24 rounded-md border-gray-300 shadow-sm" />
-                      ) : (
-                        item.reorderPoint
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.unit}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(item.lastUpdated).toLocaleDateString()}</td>
+                  <tr key={product.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{currentStock} / {totalStock}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item ? item.reorderPoint : 0}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">count</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item ? new Date(item.lastUpdated).toLocaleDateString() : '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{usedInRecipes || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <button
                         type="button"
                         className="text-red-500 hover:text-red-700 mr-2"
-                        onClick={() => dispatch({ type: 'DELETE_INVENTORY', payload: item.productId })}
+                        onClick={() => dispatch({ type: 'DELETE_INVENTORY', payload: product.id })}
                         title="Delete Inventory Record"
                       >
                         <Trash className="w-4 h-4" />
                       </button>
-                      {editingItemId === item.productId ? (
-                        <div className="flex items-center space-x-2">
-                          <button onClick={() => handleSave(item.productId)} className="text-green-600 hover:text-green-900">Save</button>
-                          <button onClick={handleCancel} className="text-red-600 hover:text-red-900">Cancel</button>
-                        </div>
-                      ) : (
+                      {item ? (
                         <button onClick={() => handleEdit(item)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
-                      )}
+                      ) : null}
                     </td>
                   </tr>
                 );

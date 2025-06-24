@@ -10,6 +10,8 @@ export interface Product {
   categoryType: CategoryType;
   supplier?: string;
   unitsPerPackage?: number;
+  packsPerCase?: number;
+  unitsPerPack?: number;
 }
 
 export interface Recipe {

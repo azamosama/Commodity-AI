@@ -128,7 +128,7 @@ export function ProfitabilityDashboard() {
                           </div>
                         </div>
                         {/* Per Batch Breakdown */}
-                        <div>
+                        <div className="mb-2">
                           <div className="font-semibold">Per Batch (All {recipe.servings} servings):</div>
                           <ul className="list-disc list-inside">
                             {recipe.ingredients.map(ingredient => {
@@ -149,6 +149,33 @@ export function ProfitabilityDashboard() {
                               if (!product) return sum;
                               const costPerUnit = product.cost / (product.packageSize * (product.unitsPerPackage || 1));
                               return sum + ingredient.quantity * costPerUnit * recipe.servings;
+                            }, 0).toFixed(2)}
+                          </div>
+                        </div>
+                        {/* For Number Sold Breakdown */}
+                        <div>
+                          <div className="font-semibold">For Number Sold ({state.sales.filter(s => s.recipeId === recipe.id).reduce((sum, s) => sum + s.quantity, 0)} sold):</div>
+                          <ul className="list-disc list-inside">
+                            {recipe.ingredients.map(ingredient => {
+                              const product = state.products.find(p => p.id === ingredient.productId);
+                              if (!product) return null;
+                              const costPerUnit = product.cost / (product.packageSize * (product.unitsPerPackage || 1));
+                              const numSold = state.sales.filter(s => s.recipeId === recipe.id).reduce((sum, s) => sum + s.quantity, 0);
+                              const ingredientCost = ingredient.quantity * costPerUnit * numSold;
+                              return (
+                                <li key={ingredient.productId}>
+                                  {product.name}: {ingredient.quantity * numSold} {product.unit} @ ${costPerUnit.toFixed(3)}/{product.unit} = ${ingredientCost.toFixed(2)}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                          <div className="font-bold mt-2">
+                            Total Cost for Number Sold: ${recipe.ingredients.reduce((sum, ingredient) => {
+                              const product = state.products.find(p => p.id === ingredient.productId);
+                              if (!product) return sum;
+                              const costPerUnit = product.cost / (product.packageSize * (product.unitsPerPackage || 1));
+                              const numSold = state.sales.filter(s => s.recipeId === recipe.id).reduce((sum, s) => sum + s.quantity, 0);
+                              return sum + ingredient.quantity * costPerUnit * numSold;
                             }, 0).toFixed(2)}
                           </div>
                         </div>
