@@ -55,17 +55,27 @@ export function InventoryTracker() {
       saleDates = getRecurrenceDates(new Date(rangeStart), new Date(rangeEnd), recurrence);
     }
 
+    // Initialize local inventory map
+    const localInventory: Record<string, number> = {};
+    state.products.forEach(product => {
+      const item = state.inventory.find(i => i.productId === product.id);
+      localInventory[product.id] = item ? item.currentStock : product.quantity * (product.unitsPerPackage || 0);
+    });
+
     saleDates.forEach(date => {
       // Update inventory for each ingredient
       recipe.ingredients.forEach((ingredient) => {
         const usedQty = ingredient.quantity * quantitySold;
+        const prevStock = localInventory[ingredient.productId] ?? 0;
+        const newStock = Math.max(0, prevStock - usedQty);
+        localInventory[ingredient.productId] = newStock;
         const inventory = state.inventory.find((i) => i.productId === ingredient.productId);
         if (inventory) {
           dispatch({
             type: 'UPDATE_INVENTORY',
             payload: {
               ...inventory,
-              currentStock: Math.max(0, inventory.currentStock - usedQty),
+              currentStock: newStock,
               lastUpdated: date,
             },
           });
@@ -76,7 +86,7 @@ export function InventoryTracker() {
             type: 'UPDATE_INVENTORY',
             payload: {
               productId: ingredient.productId,
-              currentStock: Math.max(0, initialStock - usedQty),
+              currentStock: newStock,
               unit: ingredient.unit,
               reorderPoint: 0,
               lastUpdated: date,
