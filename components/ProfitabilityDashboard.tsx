@@ -106,11 +106,12 @@ export function ProfitabilityDashboard() {
   });
 
   // Calculate actual COGS (food cost) from sales/recipes
-  let cogsYear = 0, cogsMonth = 0, cogsWeek = 0, cogsDay = 0;
   const now = new Date();
   const msInDay = 24 * 60 * 60 * 1000;
   const salesWithDates = state.sales.map(sale => ({ ...sale, date: new Date(sale.date) }));
-  // For each sale, calculate COGS and aggregate by period
+  // Group sales by period
+  let cogsYear = 0, cogsMonth = 0, cogsWeek = 0;
+  const cogsByDay: Record<string, number> = {};
   salesWithDates.forEach(sale => {
     const recipe = state.recipes.find(r => r.id === sale.recipeId);
     if (!recipe) return;
@@ -126,13 +127,21 @@ export function ProfitabilityDashboard() {
       }
       totalIngredientCost += ingredient.quantity * costPerUnit * sale.quantity;
     });
-    // Determine which period this sale falls into
+    // Group by day (YYYY-MM-DD)
+    const dayKey = sale.date.toISOString().split('T')[0];
+    cogsByDay[dayKey] = (cogsByDay[dayKey] || 0) + totalIngredientCost;
+    // For year, month, week sums
     const daysAgo = Math.floor((Number(now) - Number(sale.date)) / msInDay);
-    if (daysAgo < 1) cogsDay += totalIngredientCost;
     if (daysAgo < 7) cogsWeek += totalIngredientCost;
     if (daysAgo < 30) cogsMonth += totalIngredientCost;
-    cogsYear += totalIngredientCost;
+    if (daysAgo < 365) cogsYear += totalIngredientCost;
   });
+  // Per day: show the most recent day's COGS (or 0 if none)
+  let cogsDay = 0;
+  const sortedDays = Object.keys(cogsByDay).sort().reverse();
+  if (sortedDays.length > 0) {
+    cogsDay = cogsByDay[sortedDays[0]];
+  }
   expenseBreakdown['Food (COGS)'] = {
     year: cogsYear,
     month: cogsMonth,
@@ -145,6 +154,49 @@ export function ProfitabilityDashboard() {
   const totalMonth = Object.values(expenseBreakdown).reduce((sum, v) => sum + (v as { month: number }).month, 0);
   const totalWeek = Object.values(expenseBreakdown).reduce((sum, v) => sum + (v as { week: number }).week, 0);
   const totalDay = Object.values(expenseBreakdown).reduce((sum, v) => sum + (v as { day: number }).day, 0);
+
+  // Calculate averages
+  // Helper to get week, month, year keys
+  const getWeekKey = (date: Date) => {
+    const d = new Date(date);
+    d.setHours(0,0,0,0);
+    const firstDayOfYear = new Date(d.getFullYear(), 0, 1);
+    const pastDaysOfYear = Math.floor((d.getTime() - firstDayOfYear.getTime()) / msInDay);
+    return `${d.getFullYear()}-W${Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)}`;
+  };
+  const getMonthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth() + 1}`;
+  const getYearKey = (date: Date) => `${date.getFullYear()}`;
+
+  const cogsByWeek: Record<string, number> = {};
+  const cogsByMonth: Record<string, number> = {};
+  const cogsByYear: Record<string, number> = {};
+  salesWithDates.forEach(sale => {
+    const recipe = state.recipes.find(r => r.id === sale.recipeId);
+    if (!recipe) return;
+    let totalIngredientCost = 0;
+    recipe.ingredients.forEach(ingredient => {
+      const product = state.products.find(p => p.id === ingredient.productId);
+      if (!product) return;
+      let costPerUnit = 0;
+      if (ingredient.unit === 'count' && product.unitsPerPackage) {
+        costPerUnit = product.cost / product.unitsPerPackage;
+      } else if (ingredient.unit === product.unit && product.packageSize) {
+        costPerUnit = product.cost / product.packageSize;
+      }
+      totalIngredientCost += ingredient.quantity * costPerUnit * sale.quantity;
+    });
+    // Group by week, month, year
+    const weekKey = getWeekKey(sale.date);
+    const monthKey = getMonthKey(sale.date);
+    const yearKey = getYearKey(sale.date);
+    cogsByWeek[weekKey] = (cogsByWeek[weekKey] || 0) + totalIngredientCost;
+    cogsByMonth[monthKey] = (cogsByMonth[monthKey] || 0) + totalIngredientCost;
+    cogsByYear[yearKey] = (cogsByYear[yearKey] || 0) + totalIngredientCost;
+  });
+  const avgDay = Object.keys(cogsByDay).length > 0 ? Object.values(cogsByDay).reduce((a, b) => a + b, 0) / Object.keys(cogsByDay).length : 0;
+  const avgWeek = Object.keys(cogsByWeek).length > 0 ? Object.values(cogsByWeek).reduce((a, b) => a + b, 0) / Object.keys(cogsByWeek).length : 0;
+  const avgMonth = Object.keys(cogsByMonth).length > 0 ? Object.values(cogsByMonth).reduce((a, b) => a + b, 0) / Object.keys(cogsByMonth).length : 0;
+  const avgYear = Object.keys(cogsByYear).length > 0 ? Object.values(cogsByYear).reduce((a, b) => a + b, 0) / Object.keys(cogsByYear).length : 0;
 
   return (
     <div className="space-y-6 p-6 bg-white rounded-lg shadow">
@@ -166,13 +218,22 @@ export function ProfitabilityDashboard() {
             <tbody className="bg-white divide-y divide-gray-200">
               {Object.entries(expenseBreakdown).map(([category, v]) => {
                 const val = v as { year: number; month: number; week: number; day: number };
+                const isCOGS = category === 'Food (COGS)';
                 return (
                   <tr key={category}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{category}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${val.year.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${val.month.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${val.week.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${val.day.toFixed(2)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${val.year.toFixed(2)}{isCOGS && ` (avg $${avgYear.toFixed(2)})`}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${val.month.toFixed(2)}{isCOGS && ` (avg $${avgMonth.toFixed(2)})`}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${val.week.toFixed(2)}{isCOGS && ` (avg $${avgWeek.toFixed(2)})`}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      ${val.day.toFixed(2)}{isCOGS && ` (avg $${avgDay.toFixed(2)})`}
+                    </td>
                   </tr>
                 );
               })}
