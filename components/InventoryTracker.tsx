@@ -14,6 +14,10 @@ export function InventoryTracker() {
   const [editingReorderPoint, setEditingReorderPoint] = useState<number>(0);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [editingSale, setEditingSale] = useState<Partial<SalesRecord> | null>(null);
+  const [saleDate, setSaleDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [recurrence, setRecurrence] = useState<string>('none');
+  const [rangeStart, setRangeStart] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [rangeEnd, setRangeEnd] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Helper to get remaining stock for a product
   const getRemainingStock = (productId: string) => {
@@ -21,57 +25,85 @@ export function InventoryTracker() {
     return inventory ? inventory.currentStock : 0;
   };
 
-  // Handle sales submission
+  // Helper to generate dates for recurrence
+  const getRecurrenceDates = (start: Date, end: Date, type: string) => {
+    const dates: Date[] = [];
+    let current = new Date(start);
+    while (current <= end) {
+      dates.push(new Date(current));
+      if (type === 'daily') current.setDate(current.getDate() + 1);
+      else if (type === 'weekly') current.setDate(current.getDate() + 7);
+      else if (type === 'monthly') current.setMonth(current.getMonth() + 1);
+      else if (type === 'yearly') current.setFullYear(current.getFullYear() + 1);
+      else break;
+    }
+    return dates;
+  };
+
+  // Handle sales submission (single or recurring)
   const handleSale = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRecipe || quantitySold <= 0) return;
     const recipe = state.recipes.find((r) => r.id === selectedRecipe);
     if (!recipe) return;
 
-    // Update inventory for each ingredient
-    recipe.ingredients.forEach((ingredient) => {
-      const usedQty = ingredient.quantity * quantitySold;
-      const inventory = state.inventory.find((i) => i.productId === ingredient.productId);
-      if (inventory) {
-        dispatch({
-          type: 'UPDATE_INVENTORY',
-          payload: {
-            ...inventory,
-            currentStock: Math.max(0, inventory.currentStock - usedQty),
-            lastUpdated: new Date(),
-          },
-        });
-      } else {
-        const product = state.products.find((p) => p.id === ingredient.productId);
-        const initialStock = product ? product.quantity * (product.unitsPerPackage || 0) : 0;
-        dispatch({
-          type: 'UPDATE_INVENTORY',
-          payload: {
-            productId: ingredient.productId,
-            currentStock: Math.max(0, initialStock - usedQty),
-            unit: ingredient.unit,
-            reorderPoint: 0,
-            lastUpdated: new Date(),
-          },
-        });
-      }
-    });
+    // Determine sale dates
+    let saleDates: Date[] = [];
+    if (recurrence === 'none') {
+      saleDates = [new Date(saleDate)];
+    } else {
+      saleDates = getRecurrenceDates(new Date(rangeStart), new Date(rangeEnd), recurrence);
+    }
 
-    // Add sales record
-    dispatch({
-      type: 'ADD_SALE',
-      payload: {
-        id: uuidv4(),
-        recipeId: selectedRecipe,
-        quantity: quantitySold,
-        date: new Date(),
-        price: salePrice,
-      },
+    saleDates.forEach(date => {
+      // Update inventory for each ingredient
+      recipe.ingredients.forEach((ingredient) => {
+        const usedQty = ingredient.quantity * quantitySold;
+        const inventory = state.inventory.find((i) => i.productId === ingredient.productId);
+        if (inventory) {
+          dispatch({
+            type: 'UPDATE_INVENTORY',
+            payload: {
+              ...inventory,
+              currentStock: Math.max(0, inventory.currentStock - usedQty),
+              lastUpdated: date,
+            },
+          });
+        } else {
+          const product = state.products.find((p) => p.id === ingredient.productId);
+          const initialStock = product ? product.quantity * (product.unitsPerPackage || 0) : 0;
+          dispatch({
+            type: 'UPDATE_INVENTORY',
+            payload: {
+              productId: ingredient.productId,
+              currentStock: Math.max(0, initialStock - usedQty),
+              unit: ingredient.unit,
+              reorderPoint: 0,
+              lastUpdated: date,
+            },
+          });
+        }
+      });
+      // Add sales record
+      dispatch({
+        type: 'ADD_SALE',
+        payload: {
+          id: uuidv4(),
+          recipeId: selectedRecipe,
+          quantity: quantitySold,
+          date: date,
+          price: salePrice,
+        },
+      });
     });
 
     setSelectedRecipe('');
     setQuantitySold(0);
     setSalePrice(0);
+    setSaleDate(new Date().toISOString().split('T')[0]);
+    setRecurrence('none');
+    setRangeStart(new Date().toISOString().split('T')[0]);
+    setRangeEnd(new Date().toISOString().split('T')[0]);
   };
 
   const handleEdit = (item: InventoryItem) => {
@@ -160,6 +192,54 @@ export function InventoryTracker() {
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             />
           </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Sale Date</label>
+            <input
+              type="date"
+              value={saleDate}
+              onChange={e => setSaleDate(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              disabled={recurrence !== 'none'}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Recurrence</label>
+            <select
+              value={recurrence}
+              onChange={e => setRecurrence(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            >
+              <option value="none">None (single sale)</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+          </div>
+          {recurrence !== 'none' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Range Start</label>
+                <input
+                  type="date"
+                  value={rangeStart}
+                  onChange={e => setRangeStart(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Range End</label>
+                <input
+                  type="date"
+                  value={rangeEnd}
+                  onChange={e => setRangeEnd(e.target.value)}
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+            </>
+          )}
         </div>
         <div className="mt-6">
           <button
@@ -269,6 +349,8 @@ export function InventoryTracker() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used In Recipes</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Variance</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shrinkage %</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -289,6 +371,24 @@ export function InventoryTracker() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">count</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item ? new Date(item.lastUpdated).toLocaleDateString() : '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{usedInRecipes || '-'}</td>
+                    {/* Variance column */}
+                    {(() => {
+                      const purchased = product.quantity * (product.unitsPerPackage || 0);
+                      let used = 0;
+                      state.recipes.forEach(recipe => {
+                        const ingredient = recipe.ingredients.find(ing => ing.productId === product.id);
+                        if (ingredient) {
+                          const numSold = state.sales.filter(s => s.recipeId === recipe.id).reduce((sum, s) => sum + s.quantity, 0);
+                          used += ingredient.quantity * numSold;
+                        }
+                      });
+                      const variance = purchased - used;
+                      const shrinkage = purchased > 0 ? ((variance) / purchased) * 100 : 0;
+                      return [
+                        <td key="variance" className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{variance}</td>,
+                        <td key="shrinkage" className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{shrinkage.toFixed(1)}%</td>
+                      ];
+                    })()}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <button
                         type="button"
