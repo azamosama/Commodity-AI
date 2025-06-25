@@ -12,6 +12,8 @@ export function InventoryTracker() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingStock, setEditingStock] = useState<number>(0);
   const [editingReorderPoint, setEditingReorderPoint] = useState<number>(0);
+  const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
+  const [editingSale, setEditingSale] = useState<Partial<SalesRecord> | null>(null);
 
   // Helper to get remaining stock for a product
   const getRemainingStock = (productId: string) => {
@@ -100,6 +102,25 @@ export function InventoryTracker() {
     }
   };
 
+  // Sales record edit handlers
+  const handleEditSale = (sale: SalesRecord) => {
+    setEditingSaleId(sale.id);
+    setEditingSale({ ...sale });
+  };
+
+  const handleCancelEditSale = () => {
+    setEditingSaleId(null);
+    setEditingSale(null);
+  };
+
+  const handleSaveEditSale = () => {
+    if (editingSale && editingSaleId) {
+      dispatch({ type: 'UPDATE_SALE', payload: { ...editingSale, id: editingSaleId } as SalesRecord });
+      setEditingSaleId(null);
+      setEditingSale(null);
+    }
+  };
+
   return (
     <div className="space-y-6 p-6 bg-white rounded-lg shadow">
       <h2 className="text-2xl font-bold">Inventory & Sales Tracker</h2>
@@ -149,6 +170,92 @@ export function InventoryTracker() {
           </button>
         </div>
       </form>
+
+      {/* Sales Records Table */}
+      <div className="border-t pt-6">
+        <h3 className="text-lg font-medium mb-4">Sales Records</h3>
+        <div className="overflow-x-auto mb-8">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipe/Menu Item</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units Sold</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sale Price (per unit)</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {state.sales.map((sale) => {
+                const recipe = state.recipes.find((r) => r.id === sale.recipeId);
+                if (editingSaleId === sale.id && editingSale) {
+                  return (
+                    <tr key={sale.id} className="bg-yellow-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <select
+                          value={editingSale.recipeId}
+                          onChange={e => setEditingSale({ ...editingSale, recipeId: e.target.value })}
+                          className="block w-full rounded-md border-gray-300 shadow-sm"
+                        >
+                          <option value="">Select a recipe</option>
+                          {state.recipes.map((r) => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <input
+                          type="number"
+                          value={editingSale.quantity}
+                          min="0"
+                          onChange={e => setEditingSale({ ...editingSale, quantity: parseInt(e.target.value) })}
+                          className="block w-full rounded-md border-gray-300 shadow-sm"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <input
+                          type="number"
+                          value={editingSale.price}
+                          min="0"
+                          step="0.01"
+                          onChange={e => setEditingSale({ ...editingSale, price: parseFloat(e.target.value) })}
+                          className="block w-full rounded-md border-gray-300 shadow-sm"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {sale.date instanceof Date ? sale.date.toLocaleDateString() : new Date(sale.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <button onClick={handleSaveEditSale} className="text-green-600 hover:text-green-900 mr-2">Save</button>
+                        <button onClick={handleCancelEditSale} className="text-gray-600 hover:text-gray-900">Cancel</button>
+                      </td>
+                    </tr>
+                  );
+                }
+                return (
+                  <tr key={sale.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{recipe ? recipe.name : '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sale.quantity}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${sale.price.toFixed(2)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sale.date instanceof Date ? sale.date.toLocaleDateString() : new Date(sale.date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <button
+                        type="button"
+                        className="text-red-500 hover:text-red-700 mr-2"
+                        onClick={() => dispatch({ type: 'DELETE_SALE', payload: sale.id })}
+                        title="Delete Sale Record"
+                      >
+                        <Trash className="w-4 h-4" />
+                      </button>
+                      <button type="button" onClick={() => handleEditSale(sale)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       <div className="border-t pt-6">
         <h3 className="text-lg font-medium mb-4">Current Inventory</h3>

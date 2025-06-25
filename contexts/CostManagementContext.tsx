@@ -21,7 +21,9 @@ type CostManagementAction =
   | { type: 'DELETE_EXPENSE'; payload: string }
   | { type: 'UPDATE_INVENTORY'; payload: InventoryItem }
   | { type: 'DELETE_INVENTORY'; payload: string }
-  | { type: 'ADD_SALE'; payload: SalesRecord };
+  | { type: 'ADD_SALE'; payload: SalesRecord }
+  | { type: 'UPDATE_SALE'; payload: SalesRecord }
+  | { type: 'DELETE_SALE'; payload: string };
 
 const initialState: CostManagementState = {
   products: [],
@@ -97,6 +99,16 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
       };
     case 'ADD_SALE':
       return { ...state, sales: [...state.sales, action.payload] };
+    case 'UPDATE_SALE':
+      return {
+        ...state,
+        sales: state.sales.map((s) => (s.id === action.payload.id ? action.payload : s)),
+      };
+    case 'DELETE_SALE':
+      return {
+        ...state,
+        sales: state.sales.filter((s) => s.id !== action.payload),
+      };
     default:
       return state;
   }
