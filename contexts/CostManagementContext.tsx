@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
+"use client"
+
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useRef, useState } from 'react';
 import { Product, Recipe, Expense, InventoryItem, SalesRecord } from '@/lib/types';
 
 interface CostManagementState {
@@ -23,7 +25,8 @@ type CostManagementAction =
   | { type: 'DELETE_INVENTORY'; payload: string }
   | { type: 'ADD_SALE'; payload: SalesRecord }
   | { type: 'UPDATE_SALE'; payload: SalesRecord }
-  | { type: 'DELETE_SALE'; payload: string };
+  | { type: 'DELETE_SALE'; payload: string }
+  | { type: 'SYNC_STATE'; payload: CostManagementState };
 
 const initialState: CostManagementState = {
   products: [],
@@ -38,6 +41,8 @@ const CostManagementContext = createContext<{
   dispatch: React.Dispatch<CostManagementAction>;
 } | undefined>(undefined);
 
+const EditingContext = createContext<{ isEditing: boolean; setIsEditing: (v: boolean) => void }>({ isEditing: false, setIsEditing: () => {} });
+
 function costManagementReducer(state: CostManagementState, action: CostManagementAction): CostManagementState {
   switch (action.type) {
     case 'ADD_PRODUCT':
@@ -45,7 +50,16 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
     case 'UPDATE_PRODUCT':
       return {
         ...state,
-        products: state.products.map((p) => (p.id === action.payload.id ? action.payload : p)),
+        products: state.products.map((p) => {
+          if (p.id === action.payload.id) {
+            let priceHistory = p.priceHistory || [];
+            if (p.cost !== action.payload.cost) {
+              priceHistory = [...priceHistory, { date: new Date(), price: action.payload.cost }];
+            }
+            return { ...action.payload, priceHistory };
+          }
+          return p;
+        }),
       };
     case 'DELETE_PRODUCT':
       return {
@@ -79,16 +93,20 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
     case 'UPDATE_INVENTORY': {
       const existing = state.inventory.find(i => i.productId === action.payload.productId);
       if (existing) {
+        let stockHistory = existing.stockHistory || [];
+        if (existing.currentStock !== action.payload.currentStock) {
+          stockHistory = [...stockHistory, { date: new Date(), stock: action.payload.currentStock }];
+        }
         return {
           ...state,
           inventory: state.inventory.map(i =>
-            i.productId === action.payload.productId ? action.payload : i
+            i.productId === action.payload.productId ? { ...action.payload, stockHistory } : i
           ),
         };
       } else {
         return {
           ...state,
-          inventory: [...state.inventory, action.payload],
+          inventory: [...state.inventory, { ...action.payload, stockHistory: [{ date: new Date(), stock: action.payload.currentStock }] }],
         };
       }
     }
@@ -109,17 +127,71 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
         ...state,
         sales: state.sales.filter((s) => s.id !== action.payload),
       };
+    case 'SYNC_STATE':
+      return { ...action.payload };
     default:
       return state;
   }
 }
 
+const LOCAL_STORAGE_KEY = 'costManagementState';
+
 export function CostManagementProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(costManagementReducer, initialState);
+  const getInitialState = () => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (stored) {
+        try {
+          return JSON.parse(stored);
+        } catch {
+          return initialState;
+        }
+      }
+    }
+    return initialState;
+  };
+
+  const [state, dispatch] = useReducer(costManagementReducer, initialState, getInitialState);
+  const [isEditing, setIsEditing] = useState(false);
+  const isEditingRef = useRef(isEditing);
+  useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
+
+  // Persist to localStorage on every state change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+    }
+  }, [state]);
+
+  // Listen for storage events to sync across tabs (seamless, with warning if editing)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LOCAL_STORAGE_KEY && e.newValue) {
+        try {
+          const newState = JSON.parse(e.newValue);
+          if (JSON.stringify(newState) !== JSON.stringify(state)) {
+            if (isEditingRef.current) {
+              if (window.confirm('You have unsaved changes. Syncing data from another tab will overwrite your local changes. Continue?')) {
+                dispatch({ type: 'SYNC_STATE', payload: newState });
+                setIsEditing(false);
+              }
+            } else {
+              dispatch({ type: 'SYNC_STATE', payload: newState });
+            }
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [state]);
 
   return (
     <CostManagementContext.Provider value={{ state, dispatch }}>
-      {children}
+      <EditingContext.Provider value={{ isEditing, setIsEditing }}>
+        {children}
+      </EditingContext.Provider>
     </CostManagementContext.Provider>
   );
 }
@@ -130,4 +202,8 @@ export function useCostManagement() {
     throw new Error('useCostManagement must be used within a CostManagementProvider');
   }
   return context;
+}
+
+export function useEditing() {
+  return useContext(EditingContext);
 } 
