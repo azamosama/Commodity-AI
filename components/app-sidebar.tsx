@@ -18,6 +18,16 @@ const items = [
     icon: Home,
   },
   {
+    title: "Inventory",
+    url: "/inventory",
+    icon: Package,
+  },
+  {
+    title: "Recipes",
+    url: "/recipes",
+    icon: Calculator,
+  },
+  {
     title: "Value Proposition",
     url: "/value-proposition",
     icon: TrendingUp,
@@ -46,6 +56,11 @@ const items = [
     title: "Price Alerts",
     url: "/alerts",
     icon: TrendingUp,
+  },
+  {
+    title: "Analytics",
+    url: "/analytics",
+    icon: BarChart3,
   },
 ]
 
