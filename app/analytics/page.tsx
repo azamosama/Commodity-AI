@@ -1,5 +1,4 @@
 "use client"
-import { CostManagementProvider } from '@/contexts/CostManagementContext';
 import { useCostManagement } from '@/contexts/CostManagementContext';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import React, { useState } from 'react';
@@ -150,31 +149,29 @@ export default function AnalyticsPage() {
   });
 
   return (
-    <CostManagementProvider>
-      <div className="min-h-screen bg-gray-100">
-        <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-          <div className="px-4 py-6 sm:px-0">
-            <div className="grid grid-cols-1 gap-6">
-              {/* Inventory Analytics Section */}
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Inventory Analytics</h2>
-                {inventoryCharts}
-                {priceCharts}
-              </section>
-              {/* Recipe/Menu Item Analytics Section */}
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Recipe/Menu Item Analytics</h2>
-                {recipeCharts}
-              </section>
-              {/* Ingredient Drill-Down Section */}
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Ingredient Drill-Down</h2>
-                {ingredientDrillDown}
-              </section>
-            </div>
+    <div className="min-h-screen bg-gray-100">
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="grid grid-cols-1 gap-6">
+            {/* Inventory Analytics Section */}
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Inventory Analytics</h2>
+              {inventoryCharts}
+              {priceCharts}
+            </section>
+            {/* Recipe/Menu Item Analytics Section */}
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Recipe/Menu Item Analytics</h2>
+              {recipeCharts}
+            </section>
+            {/* Ingredient Drill-Down Section */}
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Ingredient Drill-Down</h2>
+              {ingredientDrillDown}
+            </section>
           </div>
-        </main>
-      </div>
-    </CostManagementProvider>
+        </div>
+      </main>
+    </div>
   );
 } 
