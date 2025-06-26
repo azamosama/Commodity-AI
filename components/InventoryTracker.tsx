@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useCostManagement } from '@/contexts/CostManagementContext';
+import { useCostManagement, useEditing } from '@/contexts/CostManagementContext';
 import { InventoryItem, SalesRecord, Product, Recipe } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { Trash } from 'lucide-react';
 
 export function InventoryTracker() {
   const { state, dispatch } = useCostManagement();
+  const { isEditing, setIsEditing } = useEditing();
   const [selectedRecipe, setSelectedRecipe] = useState<string>('');
   const [quantitySold, setQuantitySold] = useState<number>(0);
   const [salePrice, setSalePrice] = useState<number>(0);
@@ -114,18 +115,21 @@ export function InventoryTracker() {
     setRecurrence('none');
     setRangeStart(new Date().toISOString().split('T')[0]);
     setRangeEnd(new Date().toISOString().split('T')[0]);
+    setIsEditing(false);
   };
 
   const handleEdit = (item: InventoryItem) => {
     setEditingItemId(item.productId);
     setEditingStock(item.currentStock);
     setEditingReorderPoint(item.reorderPoint);
+    setIsEditing(true);
   };
 
   const handleCancel = () => {
     setEditingItemId(null);
     setEditingStock(0);
     setEditingReorderPoint(0);
+    setIsEditing(false);
   };
 
   const handleSave = (productId: string) => {
@@ -142,17 +146,20 @@ export function InventoryTracker() {
       });
       handleCancel();
     }
+    setIsEditing(false);
   };
 
   // Sales record edit handlers
   const handleEditSale = (sale: SalesRecord) => {
     setEditingSaleId(sale.id);
     setEditingSale({ ...sale });
+    setIsEditing(true);
   };
 
   const handleCancelEditSale = () => {
     setEditingSaleId(null);
     setEditingSale(null);
+    setIsEditing(false);
   };
 
   const handleSaveEditSale = () => {
@@ -161,6 +168,7 @@ export function InventoryTracker() {
       setEditingSaleId(null);
       setEditingSale(null);
     }
+    setIsEditing(false);
   };
 
   return (
@@ -174,6 +182,7 @@ export function InventoryTracker() {
               value={selectedRecipe}
               onChange={(e) => setSelectedRecipe(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              onFocus={() => setIsEditing(true)}
             >
               <option value="">Select a recipe</option>
               {state.recipes.map((recipe) => (
@@ -189,6 +198,7 @@ export function InventoryTracker() {
               onChange={(e) => setQuantitySold(parseInt(e.target.value))}
               min="0"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              onFocus={() => setIsEditing(true)}
             />
           </div>
           <div>
@@ -200,6 +210,7 @@ export function InventoryTracker() {
               min="0"
               step="0.01"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              onFocus={() => setIsEditing(true)}
             />
           </div>
         </div>
@@ -212,6 +223,7 @@ export function InventoryTracker() {
               onChange={e => setSaleDate(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               disabled={recurrence !== 'none'}
+              onFocus={() => setIsEditing(true)}
             />
           </div>
           <div>
@@ -220,6 +232,7 @@ export function InventoryTracker() {
               value={recurrence}
               onChange={e => setRecurrence(e.target.value)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              onFocus={() => setIsEditing(true)}
             >
               <option value="none">None (single sale)</option>
               <option value="daily">Daily</option>
@@ -237,6 +250,7 @@ export function InventoryTracker() {
                   value={rangeStart}
                   onChange={e => setRangeStart(e.target.value)}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  onFocus={() => setIsEditing(true)}
                 />
               </div>
               <div>
@@ -246,6 +260,7 @@ export function InventoryTracker() {
                   value={rangeEnd}
                   onChange={e => setRangeEnd(e.target.value)}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  onFocus={() => setIsEditing(true)}
                 />
               </div>
             </>
@@ -286,6 +301,7 @@ export function InventoryTracker() {
                           value={editingSale.recipeId}
                           onChange={e => setEditingSale({ ...editingSale, recipeId: e.target.value })}
                           className="block w-full rounded-md border-gray-300 shadow-sm"
+                          onFocus={() => setIsEditing(true)}
                         >
                           <option value="">Select a recipe</option>
                           {state.recipes.map((r) => (
@@ -300,6 +316,7 @@ export function InventoryTracker() {
                           min="0"
                           onChange={e => setEditingSale({ ...editingSale, quantity: parseInt(e.target.value) })}
                           className="block w-full rounded-md border-gray-300 shadow-sm"
+                          onFocus={() => setIsEditing(true)}
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -310,6 +327,7 @@ export function InventoryTracker() {
                           step="0.01"
                           onChange={e => setEditingSale({ ...editingSale, price: parseFloat(e.target.value) })}
                           className="block w-full rounded-md border-gray-300 shadow-sm"
+                          onFocus={() => setIsEditing(true)}
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">

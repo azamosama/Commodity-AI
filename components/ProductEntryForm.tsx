@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useCostManagement } from '@/contexts/CostManagementContext';
+import { useCostManagement, useEditing } from '@/contexts/CostManagementContext';
 import { Product, ProductCategory, CategoryType } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -7,6 +7,7 @@ import { Trash } from 'lucide-react';
 
 export function ProductEntryForm() {
   const { dispatch, state } = useCostManagement();
+  const { isEditing, setIsEditing } = useEditing();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
@@ -27,6 +28,7 @@ export function ProductEntryForm() {
     setFormData(product);
     setPacksPerCase(product.packsPerCase !== undefined ? product.packsPerCase : '');
     setUnitsPerPack(product.unitsPerPack !== undefined ? product.unitsPerPack : '');
+    setIsEditing(true);
   };
 
   const handleCancel = () => {
@@ -44,6 +46,7 @@ export function ProductEntryForm() {
     });
     setPacksPerCase('');
     setUnitsPerPack('');
+    setIsEditing(false);
   };
 
   const calculatedUnitsPerPackage = packsPerCase && unitsPerPack ? Number(packsPerCase) * Number(unitsPerPack) : undefined;
@@ -85,6 +88,7 @@ export function ProductEntryForm() {
       dispatch({ type: 'ADD_PRODUCT', payload: newProduct });
     }
     handleCancel();
+    setIsEditing(false);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -99,6 +103,7 @@ export function ProductEntryForm() {
           ? parseFloat(value)
           : value,
     }));
+    setIsEditing(true);
   };
 
   return (

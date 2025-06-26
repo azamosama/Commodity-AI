@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useCostManagement } from '@/contexts/CostManagementContext';
+import { useCostManagement, useEditing } from '@/contexts/CostManagementContext';
 import { Recipe, RecipeIngredient, Product, CostAnalysis } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { Trash } from 'lucide-react';
 
 export function RecipeCostCalculator() {
   const { state, dispatch } = useCostManagement();
+  const { isEditing, setIsEditing } = useEditing();
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
   const [recipeName, setRecipeName] = useState('');
   const [servings, setServings] = useState(1);
@@ -22,6 +23,7 @@ export function RecipeCostCalculator() {
     setServingSize(recipe.servingSize);
     setServingUnit(recipe.servingUnit);
     setIngredients(recipe.ingredients);
+    setIsEditing(true);
   };
 
   const handleCancel = () => {
@@ -31,6 +33,7 @@ export function RecipeCostCalculator() {
     setServingSize(1);
     setServingUnit('');
     setIngredients([]);
+    setIsEditing(false);
   };
 
   const handleAddIngredient = () => {
@@ -79,6 +82,7 @@ export function RecipeCostCalculator() {
       dispatch({ type: 'ADD_RECIPE', payload: { ...recipeData, id: uuidv4() } });
     }
     handleCancel();
+    setIsEditing(false);
   };
 
   useEffect(() => {
@@ -124,6 +128,7 @@ export function RecipeCostCalculator() {
             onChange={(e) => setRecipeName(e.target.value)}
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            onFocus={() => setIsEditing(true)}
           />
         </div>
         <div>
@@ -135,6 +140,7 @@ export function RecipeCostCalculator() {
             required
             min="1"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            onFocus={() => setIsEditing(true)}
           />
         </div>
         <div>
@@ -146,6 +152,7 @@ export function RecipeCostCalculator() {
             required
             min="1"
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            onFocus={() => setIsEditing(true)}
           />
         </div>
         <div>
@@ -157,6 +164,7 @@ export function RecipeCostCalculator() {
             placeholder="e.g., item, bowl"
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            onFocus={() => setIsEditing(true)}
           />
         </div>
       </div>
@@ -172,6 +180,7 @@ export function RecipeCostCalculator() {
                   value={ing.productId}
                   onChange={(e) => handleIngredientChange(index, 'productId', e.target.value)}
                   className="col-span-2 mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  onFocus={() => setIsEditing(true)}
                 >
                   <option value="">Select Product</option>
                   {state.products.map((p) => (
@@ -184,6 +193,7 @@ export function RecipeCostCalculator() {
                   value={ing.quantity}
                   onChange={(e) => handleIngredientChange(index, 'quantity', e.target.value)}
                   className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                  onFocus={() => setIsEditing(true)}
                 />
                 <div className="flex items-center space-x-2">
                   <select
@@ -191,12 +201,13 @@ export function RecipeCostCalculator() {
                     onChange={(e) => handleIngredientChange(index, 'unit', e.target.value)}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     disabled={!selectedProduct}
+                    onFocus={() => setIsEditing(true)}
                   >
                     {selectedProduct && <option value={selectedProduct.unit}>{selectedProduct.unit}</option>}
                     {selectedProduct && selectedProduct.unitsPerPackage && <option value="count">count</option>}
                   </select>
                 </div>
-                <button type="button" onClick={() => handleRemoveIngredient(index)} className="text-red-500 hover:text-red-700">
+                <button type="button" onClick={() => handleRemoveIngredient(index)} className="text-red-500 hover:text-red-700" onFocus={() => setIsEditing(true)}>
                   Remove
                 </button>
               </div>
@@ -207,6 +218,7 @@ export function RecipeCostCalculator() {
           type="button"
           onClick={handleAddIngredient}
           className="mt-4 text-indigo-600 hover:text-indigo-900"
+          onFocus={() => setIsEditing(true)}
         >
           + Add Ingredient
         </button>
@@ -268,10 +280,11 @@ export function RecipeCostCalculator() {
                         className="text-red-500 hover:text-red-700 mr-2"
                         onClick={() => dispatch({ type: 'DELETE_RECIPE', payload: recipe.id })}
                         title="Delete Recipe"
+                        onFocus={() => setIsEditing(true)}
                       >
                         <Trash className="w-4 h-4" />
                       </button>
-                      <button type="button" onClick={() => handleEdit(recipe)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
+                      <button type="button" onClick={() => handleEdit(recipe)} className="text-indigo-600 hover:text-indigo-900" onFocus={() => setIsEditing(true)}>Edit</button>
                     </td>
                   </tr>
                 ))}

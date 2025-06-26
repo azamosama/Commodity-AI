@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useCostManagement } from '@/contexts/CostManagementContext';
+import { useCostManagement, useEditing } from '@/contexts/CostManagementContext';
 import { Expense, ExpenseCategory } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { Trash } from 'lucide-react';
 
 export function ExpenseTracker() {
   const { state, dispatch } = useCostManagement();
+  const { isEditing, setIsEditing } = useEditing();
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [expense, setExpense] = useState<Partial<Expense>>({
     name: '',
@@ -19,6 +20,7 @@ export function ExpenseTracker() {
   const handleEdit = (expenseToEdit: Expense) => {
     setEditingExpense(expenseToEdit);
     setExpense(expenseToEdit);
+    setIsEditing(true);
   };
 
   const handleCancel = () => {
@@ -31,6 +33,7 @@ export function ExpenseTracker() {
       recurring: false,
       frequency: 'monthly',
     });
+    setIsEditing(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -57,6 +60,7 @@ export function ExpenseTracker() {
           ? parseFloat(value) 
           : value,
     }));
+    setIsEditing(true);
   };
 
   const totalExpenses = state.expenses.reduce((sum, expense) => sum + expense.amount, 0);
