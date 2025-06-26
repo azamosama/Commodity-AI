@@ -54,7 +54,7 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
           if (p.id === action.payload.id) {
             let priceHistory = p.priceHistory || [];
             if (p.cost !== action.payload.cost) {
-              priceHistory = [...priceHistory, { date: new Date(), price: action.payload.cost }];
+              priceHistory = [...priceHistory, { date: new Date().toISOString(), price: action.payload.cost }];
             }
             return { ...action.payload, priceHistory };
           }
@@ -66,13 +66,73 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
         ...state,
         products: state.products.filter((p) => p.id !== action.payload),
       };
-    case 'ADD_RECIPE':
-      return { ...state, recipes: [...state.recipes, action.payload] };
-    case 'UPDATE_RECIPE':
+    case 'ADD_RECIPE': {
+      // Calculate initial cost for costHistory
+      const getRecipeCost = (recipe: Recipe, products: Product[]) => {
+        return recipe.ingredients.reduce((sum, ingredient) => {
+          const product = products.find((p) => p.id === ingredient.productId);
+          if (!product) return sum;
+          let ingredientCost = 0;
+          if (ingredient.unit === 'count' && product.unitsPerPackage) {
+            const costPerUnit = product.cost / product.unitsPerPackage;
+            ingredientCost = costPerUnit * ingredient.quantity;
+          } else {
+            const costPerBaseUnit = product.cost / product.packageSize;
+            ingredientCost = costPerBaseUnit * ingredient.quantity;
+          }
+          return sum + ingredientCost;
+        }, 0);
+      };
+      const initialCost = getRecipeCost(action.payload, state.products);
       return {
         ...state,
-        recipes: state.recipes.map((r) => (r.id === action.payload.id ? action.payload : r)),
+        recipes: [
+          ...state.recipes,
+          {
+            ...action.payload,
+            costHistory: [{ date: new Date().toISOString(), cost: initialCost }],
+            salesHistory: [],
+          },
+        ],
       };
+    }
+    case 'UPDATE_RECIPE': {
+      const getRecipeCost = (recipe: Recipe, products: Product[]) => {
+        return recipe.ingredients.reduce((sum, ingredient) => {
+          const product = products.find((p) => p.id === ingredient.productId);
+          if (!product) return sum;
+          let ingredientCost = 0;
+          if (ingredient.unit === 'count' && product.unitsPerPackage) {
+            const costPerUnit = product.cost / product.unitsPerPackage;
+            ingredientCost = costPerUnit * ingredient.quantity;
+          } else {
+            const costPerBaseUnit = product.cost / product.packageSize;
+            ingredientCost = costPerBaseUnit * ingredient.quantity;
+          }
+          return sum + ingredientCost;
+        }, 0);
+      };
+      return {
+        ...state,
+        recipes: state.recipes.map((r) => {
+          if (r.id === action.payload.id) {
+            const prevCostHistory = r.costHistory || [];
+            const prevCost = prevCostHistory.length > 0 ? prevCostHistory[prevCostHistory.length - 1].cost : undefined;
+            const newCost = getRecipeCost(action.payload, state.products);
+            let costHistory = prevCostHistory;
+            if (prevCost === undefined || newCost !== prevCost) {
+              costHistory = [...prevCostHistory, { date: new Date().toISOString(), cost: newCost }];
+            }
+            return {
+              ...action.payload,
+              costHistory,
+              salesHistory: r.salesHistory ? r.salesHistory.map(s => ({ ...s, date: typeof s.date === 'string' ? s.date : s.date.toISOString() })) : [],
+            };
+          }
+          return r;
+        }),
+      };
+    }
     case 'DELETE_RECIPE':
       return {
         ...state,
@@ -95,7 +155,7 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
       if (existing) {
         let stockHistory = existing.stockHistory || [];
         if (existing.currentStock !== action.payload.currentStock) {
-          stockHistory = [...stockHistory, { date: new Date(), stock: action.payload.currentStock }];
+          stockHistory = [...stockHistory, { date: new Date().toISOString(), stock: action.payload.currentStock }];
         }
         return {
           ...state,
@@ -106,7 +166,7 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
       } else {
         return {
           ...state,
-          inventory: [...state.inventory, { ...action.payload, stockHistory: [{ date: new Date(), stock: action.payload.currentStock }] }],
+          inventory: [...state.inventory, { ...action.payload, stockHistory: [{ date: new Date().toISOString(), stock: action.payload.currentStock }] }],
         };
       }
     }
@@ -115,8 +175,26 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
         ...state,
         inventory: state.inventory.filter((i) => i.productId !== action.payload),
       };
-    case 'ADD_SALE':
-      return { ...state, sales: [...state.sales, action.payload] };
+    case 'ADD_SALE': {
+      const newSales = [...state.sales, action.payload];
+      return {
+        ...state,
+        sales: newSales,
+        recipes: state.recipes.map((r) => {
+          if (r.id === action.payload.recipeId) {
+            const salesHistory = r.salesHistory || [];
+            return {
+              ...r,
+              salesHistory: [
+                ...salesHistory.map(s => ({ ...s, date: typeof s.date === 'string' ? s.date : s.date.toISOString() })),
+                { date: typeof action.payload.date === 'string' ? action.payload.date : new Date(action.payload.date).toISOString(), quantity: action.payload.quantity },
+              ],
+            };
+          }
+          return r;
+        }),
+      };
+    }
     case 'UPDATE_SALE':
       return {
         ...state,

@@ -12,7 +12,7 @@ export interface Product {
   unitsPerPackage?: number;
   packsPerCase?: number;
   unitsPerPack?: number;
-  priceHistory?: { date: Date; price: number }[];
+  priceHistory?: { date: string; price: number }[];
 }
 
 export interface Recipe {
@@ -23,6 +23,8 @@ export interface Recipe {
   servingSize: number;
   servingUnit: string;
   instructions?: string;
+  costHistory?: { date: string; cost: number }[];
+  salesHistory?: { date: string; quantity: number }[];
 }
 
 export interface RecipeIngredient {
@@ -37,7 +39,7 @@ export interface InventoryItem {
   unit: string;
   reorderPoint: number;
   lastUpdated: Date;
-  stockHistory?: { date: Date; stock: number }[];
+  stockHistory?: { date: string; stock: number }[];
 }
 
 export interface Expense {
