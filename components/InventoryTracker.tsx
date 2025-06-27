@@ -71,6 +71,8 @@ export function InventoryTracker() {
         const newStock = Math.max(0, prevStock - usedQty);
         localInventory[ingredient.productId] = newStock;
         const inventory = state.inventory.find((i) => i.productId === ingredient.productId);
+        const product = state.products.find((p) => p.id === ingredient.productId);
+        const unit = product ? product.unit : ingredient.unit;
         if (inventory) {
           dispatch({
             type: 'UPDATE_INVENTORY',
@@ -78,17 +80,17 @@ export function InventoryTracker() {
               ...inventory,
               currentStock: newStock,
               lastUpdated: date,
+              unit,
             },
           });
         } else {
-          const product = state.products.find((p) => p.id === ingredient.productId);
           const initialStock = product ? product.quantity * (product.unitsPerPackage || 0) : 0;
           dispatch({
             type: 'UPDATE_INVENTORY',
             payload: {
               productId: ingredient.productId,
               currentStock: newStock,
-              unit: ingredient.unit,
+              unit,
               reorderPoint: 0,
               lastUpdated: date,
             },
@@ -396,7 +398,7 @@ export function InventoryTracker() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{currentStock} / {totalStock}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item ? item.reorderPoint : 0}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">count</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.unit}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item ? new Date(item.lastUpdated).toLocaleDateString() : '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{usedInRecipes || '-'}</td>
                     {/* Variance column */}

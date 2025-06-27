@@ -45,8 +45,24 @@ const EditingContext = createContext<{ isEditing: boolean; setIsEditing: (v: boo
 
 function costManagementReducer(state: CostManagementState, action: CostManagementAction): CostManagementState {
   switch (action.type) {
-    case 'ADD_PRODUCT':
-      return { ...state, products: [...state.products, action.payload] };
+    case 'ADD_PRODUCT': {
+      // Add product and initialize inventory for it
+      const newProduct = action.payload;
+      const initialStock = newProduct.quantity * (newProduct.unitsPerPackage || 1);
+      const newInventoryItem = {
+        productId: newProduct.id,
+        currentStock: initialStock,
+        unit: newProduct.unit,
+        reorderPoint: 0,
+        lastUpdated: new Date(),
+        stockHistory: [{ date: new Date().toISOString(), stock: initialStock }],
+      };
+      return {
+        ...state,
+        products: [...state.products, newProduct],
+        inventory: [...state.inventory, newInventoryItem],
+      };
+    }
     case 'UPDATE_PRODUCT':
       return {
         ...state,
