@@ -387,8 +387,8 @@ export function InventoryTracker() {
             <tbody className="bg-white divide-y divide-gray-200">
               {state.products.map((product) => {
                 const item = state.inventory.find((i) => i.productId === product.id);
-                const currentStock = item ? item.currentStock : product.quantity * (product.unitsPerPackage || 0);
-                const totalStock = product.quantity * (product.unitsPerPackage || 0);
+                const currentStock = item ? item.currentStock : (product.quantity * (product.unitsPerPackage || 1));
+                const totalStock = product.quantity * (product.unitsPerPackage || 1);
                 const usedInRecipes = state.recipes
                   .filter((recipe) => recipe.ingredients.some((ing) => ing.productId === product.id))
                   .map((recipe) => recipe.name)
