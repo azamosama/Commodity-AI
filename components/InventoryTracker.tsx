@@ -381,12 +381,14 @@ export function InventoryTracker() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Used In Recipes</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Variance</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shrinkage %</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Restock Recommendation</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {state.products.map((product) => {
                 const item = state.inventory.find((i) => i.productId === product.id);
+                // Show true currentStock, even if negative or positive
                 const currentStock = item ? item.currentStock : (product.quantity * (product.unitsPerPackage || 1));
                 const totalStock = product.quantity * (product.unitsPerPackage || 1);
                 const usedInRecipes = state.recipes
@@ -396,7 +398,11 @@ export function InventoryTracker() {
                 return (
                   <tr key={product.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{currentStock} / {totalStock}</td>
+                    <td className={
+                      `px-6 py-4 whitespace-nowrap text-sm ${currentStock < (item ? item.reorderPoint : 0) ? 'text-red-600 font-bold' : 'text-gray-900'}`
+                    }>
+                      {currentStock} / {totalStock}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item ? item.reorderPoint : 0}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.unit}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item ? new Date(item.lastUpdated).toLocaleDateString() : '-'}</td>
@@ -419,6 +425,18 @@ export function InventoryTracker() {
                         <td key="shrinkage" className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{shrinkage.toFixed(1)}%</td>
                       ];
                     })()}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {currentStock < (item ? item.reorderPoint : 0) ? (
+                        <span
+                          className="text-red-600 font-semibold cursor-help"
+                          title={`You have ${currentStock} ${product.unit} left, but your reorder point is ${item ? item.reorderPoint : 0} ${product.unit}. Consider ordering at least ${(item ? item.reorderPoint : 0) - currentStock} ${product.unit} to reach your reorder point.`}
+                        >
+                          Restock needed
+                        </span>
+                      ) : (
+                        <span className="text-green-600">✔</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <button
                         type="button"
