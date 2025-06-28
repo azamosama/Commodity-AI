@@ -333,7 +333,7 @@ export function InventoryTracker() {
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {sale.date instanceof Date ? sale.date.toLocaleDateString() : new Date(sale.date).toLocaleDateString()}
+                        {new Date(sale.date).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <button onClick={handleSaveEditSale} className="text-green-600 hover:text-green-900 mr-2">Save</button>
@@ -347,7 +347,9 @@ export function InventoryTracker() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{recipe ? recipe.name : '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sale.quantity}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${sale.price.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sale.date instanceof Date ? sale.date.toLocaleDateString() : new Date(sale.date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(sale.date).toLocaleDateString()}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <button
                         type="button"
@@ -405,7 +407,7 @@ export function InventoryTracker() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item ? item.reorderPoint : 0}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.unit}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item ? new Date(item.lastUpdated).toLocaleDateString() : '-'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(item ? item.lastUpdated : '').toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{usedInRecipes || '-'}</td>
                     {/* Variance column */}
                     {(() => {

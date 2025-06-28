@@ -218,7 +218,7 @@ export function ExpenseTracker() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{expense.category}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${expense.amount.toFixed(2)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {expense.date.toLocaleDateString()}
+                    {new Date(expense.date).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {expense.recurring ? `${expense.frequency}` : 'No'}
