@@ -84,19 +84,34 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
       // If no sales/usage, update inventory to match new product quantity
       let updatedInventory = state.inventory;
       if (!hasSales) {
-        updatedInventory = state.inventory.map((inv) => {
-          if (inv.productId === action.payload.id) {
-            const newStock = action.payload.quantity * (action.payload.unitsPerPackage || 1);
-            return {
-              ...inv,
+        const inventoryExists = state.inventory.some(inv => inv.productId === action.payload.id);
+        const newStock = action.payload.quantity * (action.payload.unitsPerPackage || 1);
+        if (inventoryExists) {
+          updatedInventory = state.inventory.map((inv) => {
+            if (inv.productId === action.payload.id) {
+              return {
+                ...inv,
+                currentStock: newStock,
+                unit: action.payload.unit,
+                stockHistory: [...(inv.stockHistory || []), { date: new Date().toISOString(), stock: newStock }],
+                lastUpdated: new Date(),
+              };
+            }
+            return inv;
+          });
+        } else {
+          updatedInventory = [
+            ...state.inventory,
+            {
+              productId: action.payload.id,
               currentStock: newStock,
               unit: action.payload.unit,
-              stockHistory: [...(inv.stockHistory || []), { date: new Date().toISOString(), stock: newStock }],
+              reorderPoint: 0,
               lastUpdated: new Date(),
-            };
-          }
-          return inv;
-        });
+              stockHistory: [{ date: new Date().toISOString(), stock: newStock }],
+            },
+          ];
+        }
       }
       return {
         ...state,
