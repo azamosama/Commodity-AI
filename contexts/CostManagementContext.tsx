@@ -63,20 +63,47 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
         inventory: [...state.inventory, newInventoryItem],
       };
     }
-    case 'UPDATE_PRODUCT':
+    case 'UPDATE_PRODUCT': {
+      // Update product as before
+      const updatedProducts = state.products.map((p) => {
+        if (p.id === action.payload.id) {
+          let priceHistory = p.priceHistory || [];
+          if (p.cost !== action.payload.cost) {
+            priceHistory = [...priceHistory, { date: new Date().toISOString(), price: action.payload.cost }];
+          }
+          return { ...action.payload, priceHistory };
+        }
+        return p;
+      });
+      // Check for sales/usage for this product
+      const hasSales = state.sales.some(sale => {
+        // Find all recipes that use this product as an ingredient
+        const recipe = state.recipes.find(r => r.id === sale.recipeId);
+        return recipe && recipe.ingredients.some(ing => ing.productId === action.payload.id);
+      });
+      // If no sales/usage, update inventory to match new product quantity
+      let updatedInventory = state.inventory;
+      if (!hasSales) {
+        updatedInventory = state.inventory.map((inv) => {
+          if (inv.productId === action.payload.id) {
+            const newStock = action.payload.quantity * (action.payload.unitsPerPackage || 1);
+            return {
+              ...inv,
+              currentStock: newStock,
+              unit: action.payload.unit,
+              stockHistory: [...(inv.stockHistory || []), { date: new Date().toISOString(), stock: newStock }],
+              lastUpdated: new Date(),
+            };
+          }
+          return inv;
+        });
+      }
       return {
         ...state,
-        products: state.products.map((p) => {
-          if (p.id === action.payload.id) {
-            let priceHistory = p.priceHistory || [];
-            if (p.cost !== action.payload.cost) {
-              priceHistory = [...priceHistory, { date: new Date().toISOString(), price: action.payload.cost }];
-            }
-            return { ...action.payload, priceHistory };
-          }
-          return p;
-        }),
+        products: updatedProducts,
+        inventory: updatedInventory,
       };
+    }
     case 'DELETE_PRODUCT':
       return {
         ...state,
