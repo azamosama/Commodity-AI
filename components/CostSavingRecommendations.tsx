@@ -17,8 +17,8 @@ export function CostSavingRecommendations() {
       return sum + used;
     }, 0);
 
-    // Example: If used more than 100 units/month, suggest larger package
-    if (totalUsed > 100) {
+    // Example: If used more than 10 units/month, suggest larger package
+    if (totalUsed > 10) {
       // Simulate a supplier option for a larger package
       const largerPackageSize = product.packageSize * 5;
       const largerPackageCost = product.cost * 4.5; // 10% discount for bulk
@@ -36,17 +36,17 @@ export function CostSavingRecommendations() {
   return (
     <div className="space-y-6 p-6 bg-white rounded-lg shadow">
       <h2 className="text-2xl font-bold">Cost-Saving Recommendations</h2>
-      {recommendations.length === 0 ? (
-        <p className="text-gray-600">No cost-saving opportunities detected based on current usage patterns.</p>
-      ) : (
-        <ul className="space-y-4">
-          {recommendations.map((rec: any) => (
+      <ul className="space-y-4">
+        {recommendations.length === 0 ? (
+          <li><p className="text-gray-600">No cost-saving opportunities detected based on current usage patterns.</p></li>
+        ) : (
+          recommendations.map((rec: any) => (
             <li key={rec.product.id} className="p-4 border rounded-lg bg-green-50 border-green-200">
               <strong>{rec.product.name}:</strong> <span className="text-green-800">{rec.suggestion}</span>
             </li>
-          ))}
-        </ul>
-      )}
+          ))
+        )}
+      </ul>
     </div>
   );
 } 

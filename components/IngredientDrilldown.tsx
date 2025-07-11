@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCostManagement } from '@/contexts/CostManagementContext';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
 
@@ -8,6 +8,10 @@ export default function IngredientDrilldown() {
     state.recipes.length > 0 ? state.recipes[0].id : null
   );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => { setHasMounted(true); }, []);
+  if (!hasMounted) return null;
 
   const selectedRecipe = state.recipes.find(r => r.id === selectedRecipeId);
 
@@ -59,12 +63,15 @@ export default function IngredientDrilldown() {
                             {product && product.priceHistory && product.priceHistory.length > 0 ? (
                               <div style={{ width: '100%', height: 180 }}>
                                 <ResponsiveContainer>
-                                  <LineChart data={product.priceHistory.map(entry => ({
-                                    date: new Date(entry.date).toLocaleDateString(),
-                                    price: entry.price,
-                                  }))} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                                  <LineChart data={product.priceHistory
+                                    .slice()
+                                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                                    .map(entry => ({
+                                      date: new Date(entry.date).toISOString().slice(0, 10),
+                                      price: entry.price,
+                                    }))} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="date" />
+                                    <XAxis dataKey="date" domain={['dataMin', 'dataMax']} type="category" />
                                     <YAxis />
                                     <Tooltip />
                                     <Line type="monotone" dataKey="price" stroke="#ef4444" strokeWidth={2} dot={true} />
@@ -81,12 +88,15 @@ export default function IngredientDrilldown() {
                             {inventory && inventory.stockHistory && inventory.stockHistory.length > 0 ? (
                               <div style={{ width: '100%', height: 180 }}>
                                 <ResponsiveContainer>
-                                  <LineChart data={inventory.stockHistory.map(entry => ({
-                                    date: new Date(entry.date).toLocaleDateString(),
-                                    stock: entry.stock,
-                                  }))} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                                  <LineChart data={inventory.stockHistory
+                                    .slice()
+                                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                                    .map(entry => ({
+                                      date: new Date(entry.date).toISOString().slice(0, 10),
+                                      stock: entry.stock,
+                                    }))} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="date" />
+                                    <XAxis dataKey="date" domain={['dataMin', 'dataMax']} type="category" />
                                     <YAxis allowDecimals={false} />
                                     <Tooltip />
                                     <Line type="monotone" dataKey="stock" stroke="#3b82f6" strokeWidth={2} dot={true} />

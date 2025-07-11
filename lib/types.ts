@@ -2,6 +2,7 @@ export interface Product {
   id: string;
   name: string;
   quantity: number;
+  initialQuantity?: number;
   unit: string;
   packageSize: number;
   packageUnit: string;
@@ -12,7 +13,8 @@ export interface Product {
   unitsPerPackage?: number;
   packsPerCase?: number;
   unitsPerPack?: number;
-  priceHistory?: { date: string; price: number }[];
+  priceHistory?: { date: string; price: number; packageSize?: number; quantity?: number }[];
+  restockHistory?: { date: string; quantity: number; cost: number }[];
 }
 
 export interface Recipe {
@@ -38,8 +40,8 @@ export interface InventoryItem {
   currentStock: number;
   unit: string;
   reorderPoint: number;
-  lastUpdated: Date;
-  stockHistory?: { date: string; stock: number }[];
+  lastUpdated: string;
+  stockHistory: { date: string; stock: number }[];
 }
 
 export interface Expense {
@@ -56,7 +58,7 @@ export interface SalesRecord {
   id: string;
   recipeId: string;
   quantity: number;
-  date: Date;
+  date: string;
   price: number;
 }
 

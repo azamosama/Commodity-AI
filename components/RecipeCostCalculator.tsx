@@ -3,6 +3,18 @@ import { useCostManagement, useEditing } from '@/contexts/CostManagementContext'
 import { Recipe, RecipeIngredient, Product, CostAnalysis } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { Trash } from 'lucide-react';
+import { calculateTotalUnits } from '@/lib/utils';
+
+// Helper function for cost per base unit
+function getCostPerBaseUnit(product: Product) {
+  if ((product.unit === 'count' || product.unit === 'pieces' || product.unit === 'units') && product.unitsPerPackage) {
+    const totalUnits = product.quantity * product.unitsPerPackage;
+    return totalUnits > 0 ? product.cost / totalUnits : 0;
+  } else {
+    const totalUnits = product.quantity * (product.packageSize || 1);
+    return totalUnits > 0 ? product.cost / totalUnits : 0;
+  }
+}
 
 export function RecipeCostCalculator() {
   const { state, dispatch } = useCostManagement();
@@ -15,6 +27,9 @@ export function RecipeCostCalculator() {
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
 
   const [costAnalysis, setCostAnalysis] = useState<CostAnalysis | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => { setHasMounted(true); }, []);
 
   const handleEdit = (recipe: Recipe) => {
     setEditingRecipe(recipe);
@@ -91,26 +106,30 @@ export function RecipeCostCalculator() {
       if (!product) return sum;
 
       let ingredientCost = 0;
-      if (ingredient.unit === 'count' && product.unitsPerPackage) {
-        const costPerUnit = product.cost / product.unitsPerPackage;
-        ingredientCost = costPerUnit * ingredient.quantity;
-      } else {
-        // Assumes the ingredient quantity is in the product's base unit (e.g., lb, kg)
-        const costPerBaseUnit = product.cost / product.packageSize;
-        ingredientCost = costPerBaseUnit * ingredient.quantity;
+      // Countable items (e.g., eggs, cups)
+      if (
+        (product.unit === 'count' || product.unit === 'pieces' || product.unit === 'units') &&
+        product.unitsPerPackage
+      ) {
+        const totalUnits = product.quantity * product.unitsPerPackage;
+        let perUnitCost = getCostPerBaseUnit(product);
+        ingredientCost = perUnitCost * ingredient.quantity;
+      } else if (product.packageSize) {
+        // Weight/volume items (e.g., lb, kg, L)
+        const totalBaseUnits = product.quantity * product.packageSize;
+        let perBaseUnitCost = getCostPerBaseUnit(product);
+        ingredientCost = perBaseUnitCost * ingredient.quantity;
       }
-      
       return sum + ingredientCost;
     }, 0);
 
     const costPerServing = servings > 0 ? totalCost / servings : 0;
-    
     setCostAnalysis({
-        totalCost,
-        costPerServing,
-        suggestedPrice: costPerServing * 3, // 300% markup
-        profitMargin: costPerServing > 0 ? ((costPerServing * 3) - costPerServing) / (costPerServing * 3) : 0,
-        breakevenPoint: 0, // Placeholder
+      totalCost,
+      costPerServing,
+      suggestedPrice: costPerServing * 3, // 300% markup
+      profitMargin: costPerServing > 0 ? ((costPerServing * 3) - costPerServing) / (costPerServing * 3) : 0,
+      breakevenPoint: 0, // Placeholder
     });
   }, [ingredients, servings, state.products]);
 
@@ -251,7 +270,7 @@ export function RecipeCostCalculator() {
         )}
       </div>
 
-      {state.recipes.length > 0 && (
+      {hasMounted && state.recipes.length > 0 && (
         <div className="mt-8">
           <h3 className="text-lg font-medium mb-2">Current Recipes</h3>
           <div className="overflow-x-auto">

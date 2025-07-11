@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useReducer, ReactNode, useEffect, useRef, useState } from 'react';
 import { Product, Recipe, Expense, InventoryItem, SalesRecord } from '@/lib/types';
+import { calculateTotalUnits } from '@/lib/utils';
 
 interface CostManagementState {
   products: Product[];
@@ -43,75 +44,137 @@ const CostManagementContext = createContext<{
 
 const EditingContext = createContext<{ isEditing: boolean; setIsEditing: (v: boolean) => void }>({ isEditing: false, setIsEditing: () => {} });
 
+// Helper to recalculate inventory from scratch
+function recalculateInventory(state: CostManagementState): InventoryItem[] {
+  // Start with initial stock for each product
+  const inventoryMap: Record<string, InventoryItem & { stockHistory: { date: string; stock: number }[] }> = {};
+  state.products.forEach(product => {
+    // Use initialQuantity as denominator, and sum of restocks for numerator
+    const initialQty = typeof product.initialQuantity === 'number' ? product.initialQuantity : (typeof product.quantity === 'number' ? product.quantity : 0);
+    const totalRestocked = Array.isArray(product.restockHistory)
+      ? product.restockHistory.reduce((sum, r) => sum + (r.quantity || 0), 0)
+      : 0;
+    const startingStock = initialQty + totalRestocked;
+    // Set initial stock at T00:00:00.000Z
+    const initialDate = new Date(new Date().toISOString().slice(0,10) + 'T00:00:00.000Z').toISOString();
+    inventoryMap[product.id] = {
+      productId: product.id,
+      currentStock: startingStock,
+      unit: product.unit,
+      reorderPoint: 0,
+      lastUpdated: initialDate,
+      stockHistory: [{ date: initialDate, stock: startingStock }] as { date: string; stock: number }[],
+      // Optionally, you can add initialQuantity here for UI reference
+      // initialQuantity: initialQty,
+    };
+  });
+  // Subtract usage for all sales
+  state.sales.forEach(sale => {
+    const recipe = state.recipes.find(r => r.id === sale.recipeId);
+    if (!recipe) return;
+    recipe.ingredients.forEach(ingredient => {
+      const product = state.products.find(p => p.id === ingredient.productId);
+      if (!product) return;
+      let usage = 0;
+      if ((product.unit === 'count' || product.unit === 'pieces' || product.unit === 'units') && product.unitsPerPackage) {
+        usage = ingredient.quantity * sale.quantity;
+      } else if (product.packageSize) {
+        usage = ingredient.quantity * sale.quantity;
+      }
+      if (inventoryMap[product.id]) {
+        inventoryMap[product.id].currentStock -= usage;
+        // Set sale at T12:00:00.000Z on sale date
+        const saleDate = new Date(new Date(getDateString(sale.date)).toISOString().slice(0,10) + 'T12:00:00.000Z').toISOString();
+        inventoryMap[product.id].lastUpdated = saleDate;
+        if (Array.isArray(inventoryMap[product.id].stockHistory)) {
+          (inventoryMap[product.id].stockHistory as { date: string; stock: number }[]).push({ date: saleDate, stock: inventoryMap[product.id].currentStock });
+        }
+      }
+    });
+  });
+  return Object.values(inventoryMap);
+}
+
+function getDateString(date: unknown): string {
+  if (typeof date === 'string') return date;
+  if (date instanceof Date) return date.toISOString();
+  return String(date);
+}
+
 function costManagementReducer(state: CostManagementState, action: CostManagementAction): CostManagementState {
   switch (action.type) {
     case 'ADD_PRODUCT': {
-      // Add product and initialize inventory for it
-      const newProduct = action.payload;
-      const initialStock = newProduct.quantity * (newProduct.unitsPerPackage || 1);
-      const newInventoryItem = {
-        productId: newProduct.id,
-        currentStock: initialStock,
-        unit: newProduct.unit,
-        reorderPoint: 0,
-        lastUpdated: new Date(),
-        stockHistory: [{ date: new Date().toISOString(), stock: initialStock }],
-      };
+      const newProducts = [...state.products, action.payload];
       return {
         ...state,
-        products: [...state.products, newProduct],
-        inventory: [...state.inventory, newInventoryItem],
+        products: newProducts,
+        inventory: recalculateInventory({ ...state, products: newProducts }),
       };
     }
     case 'UPDATE_PRODUCT': {
-      // Update product as before
-      const updatedProducts = state.products.map((p) => {
-        if (p.id === action.payload.id) {
-          let priceHistory = p.priceHistory || [];
-          if (p.cost !== action.payload.cost) {
-            priceHistory = [...priceHistory, { date: new Date().toISOString(), price: action.payload.cost }];
+      const prevProduct = state.products.find((p) => p.id === action.payload.id);
+      // Determine priceHistory logic
+      let updatedPriceHistory = action.payload.priceHistory;
+      let resetInventory = false;
+      let resetQuantity = action.payload.quantity;
+      let resetDate = new Date().toISOString();
+      if (prevProduct) {
+        const lastPrice = Array.isArray(prevProduct.priceHistory) && prevProduct.priceHistory.length > 0
+          ? prevProduct.priceHistory[prevProduct.priceHistory.length - 1].price
+          : prevProduct.cost;
+        if (action.payload.cost !== lastPrice) {
+          let effectiveDate = new Date().toISOString();
+          if (Array.isArray(action.payload.priceHistory) && action.payload.priceHistory.length > 0) {
+            effectiveDate = action.payload.priceHistory[action.payload.priceHistory.length - 1].date;
           }
-          return { ...action.payload, priceHistory };
-        }
-        return p;
-      });
-      // Check for sales/usage for this product
-      const hasSales = state.sales.some(sale => {
-        // Find all recipes that use this product as an ingredient
-        const recipe = state.recipes.find(r => r.id === sale.recipeId);
-        return recipe && recipe.ingredients.some(ing => ing.productId === action.payload.id);
-      });
-      // If no sales/usage, update inventory to match new product quantity
-      let updatedInventory = state.inventory;
-      if (!hasSales) {
-        const inventoryExists = state.inventory.some(inv => inv.productId === action.payload.id);
-        const newStock = action.payload.quantity * (action.payload.unitsPerPackage || 1);
-        if (inventoryExists) {
-          updatedInventory = state.inventory.map((inv) => {
-            if (inv.productId === action.payload.id) {
-              return {
-                ...inv,
-                currentStock: newStock,
-                unit: action.payload.unit,
-                stockHistory: [...(inv.stockHistory || []), { date: new Date().toISOString(), stock: newStock }],
-                lastUpdated: new Date(),
-              };
-            }
-            return inv;
-          });
-        } else {
-          updatedInventory = [
-            ...state.inventory,
+          updatedPriceHistory = [
+            ...(Array.isArray(prevProduct.priceHistory) ? prevProduct.priceHistory : []),
             {
-              productId: action.payload.id,
-              currentStock: newStock,
-              unit: action.payload.unit,
-              reorderPoint: 0,
-              lastUpdated: new Date(),
-              stockHistory: [{ date: new Date().toISOString(), stock: newStock }],
+              date: effectiveDate,
+              price: action.payload.cost,
+              packageSize: action.payload.packageSize,
+              quantity: action.payload.quantity,
             },
           ];
+        } else {
+          updatedPriceHistory = prevProduct.priceHistory;
         }
+        // If quantity changed, reset inventory for this product
+        if (action.payload.quantity !== prevProduct.quantity) {
+          resetInventory = true;
+          resetQuantity = action.payload.quantity;
+          // Use the effective date for the reset if available
+          if (Array.isArray(updatedPriceHistory) && updatedPriceHistory.length > 0) {
+            resetDate = updatedPriceHistory[updatedPriceHistory.length - 1].date;
+          }
+        }
+      }
+      // Merge all fields, preserving restockHistory and priceHistory
+      let updatedProduct = {
+        ...prevProduct,
+        ...action.payload,
+        restockHistory: action.payload.restockHistory ?? prevProduct?.restockHistory ?? [],
+        priceHistory: updatedPriceHistory,
+      };
+      const updatedProducts = state.products.map((p) =>
+        p.id === action.payload.id ? updatedProduct : p
+      );
+      // If quantity changed, reset inventory for this product
+      let updatedInventory = recalculateInventory({ ...state, products: updatedProducts });
+      if (resetInventory) {
+        updatedInventory = updatedInventory.map(item =>
+          item.productId === action.payload.id
+            ? {
+                ...item,
+                currentStock: resetQuantity,
+                lastUpdated: resetDate,
+                stockHistory: [
+                  ...(Array.isArray(item.stockHistory) ? item.stockHistory : []),
+                  { date: resetDate, stock: resetQuantity },
+                ],
+              }
+            : item
+        );
       }
       return {
         ...state,
@@ -119,11 +182,14 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
         inventory: updatedInventory,
       };
     }
-    case 'DELETE_PRODUCT':
+    case 'DELETE_PRODUCT': {
+      const filteredProducts = state.products.filter((p) => p.id !== action.payload);
       return {
         ...state,
-        products: state.products.filter((p) => p.id !== action.payload),
+        products: filteredProducts,
+        inventory: recalculateInventory({ ...state, products: filteredProducts }),
       };
+    }
     case 'ADD_RECIPE': {
       // Calculate initial cost for costHistory
       const getRecipeCost = (recipe: Recipe, products: Product[]) => {
@@ -170,13 +236,17 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
           return sum + ingredientCost;
         }, 0);
       };
+      const newCost = getRecipeCost(action.payload, state.products);
+      let costHistory = action.payload.costHistory || [];
+      if (costHistory.length === 0 || newCost !== costHistory[costHistory.length - 1].cost) {
+        costHistory = [...costHistory, { date: new Date().toISOString(), cost: newCost }];
+      }
       return {
         ...state,
         recipes: state.recipes.map((r) => {
           if (r.id === action.payload.id) {
             const prevCostHistory = r.costHistory || [];
             const prevCost = prevCostHistory.length > 0 ? prevCostHistory[prevCostHistory.length - 1].cost : undefined;
-            const newCost = getRecipeCost(action.payload, state.products);
             let costHistory = prevCostHistory;
             if (prevCost === undefined || newCost !== prevCost) {
               costHistory = [...prevCostHistory, { date: new Date().toISOString(), cost: newCost }];
@@ -184,7 +254,7 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
             return {
               ...action.payload,
               costHistory,
-              salesHistory: r.salesHistory ? r.salesHistory.map(s => ({ ...s, date: typeof s.date === 'string' ? s.date : s.date.toISOString() })) : [],
+              salesHistory: state.sales.filter(sale => sale.recipeId === action.payload.id).map(sale => ({ date: getDateString(sale.date), quantity: sale.quantity })),
             };
           }
           return r;
@@ -210,10 +280,22 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
       };
     case 'UPDATE_INVENTORY': {
       const existing = state.inventory.find(i => i.productId === action.payload.productId);
+      // Find the current and updated Product
+      const product = state.products.find(p => p.id === action.payload.productId);
+      // Find the latest price in priceHistory
+      const latestPrice = product && Array.isArray(product.priceHistory) && product.priceHistory.length > 0
+        ? product.priceHistory[product.priceHistory.length - 1].price
+        : product?.cost;
+      // Find the updated Product (after update)
+      const updatedProduct = { ...product, ...action.payload };
+      const updatedPrice = updatedProduct.cost;
       if (existing) {
-        let stockHistory = existing.stockHistory || [];
-        if (existing.currentStock !== action.payload.currentStock) {
-          stockHistory = [...stockHistory, { date: new Date().toISOString(), stock: action.payload.currentStock }];
+        let stockHistory: { date: string; stock: number }[] = Array.isArray(existing.stockHistory) ? existing.stockHistory : [];
+        // Only add a new stockHistory entry if the cost (price) changes
+        if (latestPrice !== updatedPrice) {
+          // Use T00:00:00.000Z for restock/manual update
+          const restockDate = new Date(new Date(action.payload.lastUpdated).toISOString().slice(0,10) + 'T00:00:00.000Z').toISOString();
+          stockHistory = [...stockHistory, { date: restockDate, stock: action.payload.currentStock }];
         }
         return {
           ...state,
@@ -224,7 +306,7 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
       } else {
         return {
           ...state,
-          inventory: [...state.inventory, { ...action.payload, stockHistory: [{ date: new Date().toISOString(), stock: action.payload.currentStock }] }],
+          inventory: [...state.inventory, { ...action.payload, stockHistory: [{ date: action.payload.lastUpdated, stock: action.payload.currentStock }] as { date: string; stock: number }[] }],
         };
       }
     }
@@ -234,35 +316,39 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
         inventory: state.inventory.filter((i) => i.productId !== action.payload),
       };
     case 'ADD_SALE': {
+      // Add sale to global sales
       const newSales = [...state.sales, action.payload];
+      // Update salesHistory for the relevant recipe
+      const updatedRecipes = state.recipes.map(recipe => {
+        if (recipe.id === action.payload.recipeId) {
+          const prevSalesHistory = recipe.salesHistory || [];
+          const saleDate = getDateString(action.payload.date);
+          return {
+            ...recipe,
+            salesHistory: [...prevSalesHistory, { date: saleDate, quantity: action.payload.quantity }],
+          };
+        }
+        return recipe;
+      });
       return {
         ...state,
         sales: newSales,
-        recipes: state.recipes.map((r) => {
-          if (r.id === action.payload.recipeId) {
-            const salesHistory = r.salesHistory || [];
-            return {
-              ...r,
-              salesHistory: [
-                ...salesHistory.map(s => ({ ...s, date: typeof s.date === 'string' ? s.date : s.date.toISOString() })),
-                { date: typeof action.payload.date === 'string' ? action.payload.date : new Date(action.payload.date).toISOString(), quantity: action.payload.quantity },
-              ],
-            };
-          }
-          return r;
-        }),
+        recipes: updatedRecipes,
+        inventory: recalculateInventory({ ...state, sales: newSales }),
       };
     }
     case 'UPDATE_SALE':
+    case 'DELETE_SALE': {
+      // For any sales change, recalculate inventory
+      let newSales = state.sales;
+      if (action.type === 'UPDATE_SALE') newSales = state.sales.map(s => s.id === action.payload.id ? action.payload : s);
+      if (action.type === 'DELETE_SALE') newSales = state.sales.filter(s => s.id !== action.payload);
       return {
         ...state,
-        sales: state.sales.map((s) => (s.id === action.payload.id ? action.payload : s)),
+        sales: newSales,
+        inventory: recalculateInventory({ ...state, sales: newSales }),
       };
-    case 'DELETE_SALE':
-      return {
-        ...state,
-        sales: state.sales.filter((s) => s.id !== action.payload),
-      };
+    }
     case 'SYNC_STATE':
       return { ...action.payload };
     default:
@@ -322,6 +408,46 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, [state]);
+
+  useEffect(() => {
+    // MIGRATION: Initialize priceHistory for all products that are missing it
+    if (state.products.some(p => !Array.isArray(p.priceHistory) || p.priceHistory.length === 0)) {
+      const migratedProducts = state.products.map(p => {
+        if (!Array.isArray(p.priceHistory) || p.priceHistory.length === 0) {
+          return {
+            ...p,
+            priceHistory: [{
+              date: new Date().toISOString(),
+              price: p.cost,
+              packageSize: p.packageSize,
+              quantity: p.quantity
+            }]
+          };
+        }
+        return p;
+      });
+      dispatch({ type: 'SYNC_STATE', payload: { ...state, products: migratedProducts } });
+    }
+  }, []);
+
+  useEffect(() => {
+    // TEMP PATCH: Fix priceHistory for Strawberries
+    const fixedProducts = state.products.map(p => {
+      if (p.name === 'Strawberries') {
+        return {
+          ...p,
+          priceHistory: [
+            { date: '2025-06-01T00:00:00.000Z', price: 80, packageSize: p.packageSize, quantity: p.quantity },
+            { date: '2025-07-02T00:00:00.000Z', price: 90, packageSize: p.packageSize, quantity: p.quantity },
+          ]
+        };
+      }
+      return p;
+    });
+    if (JSON.stringify(fixedProducts) !== JSON.stringify(state.products)) {
+      dispatch({ type: 'SYNC_STATE', payload: { ...state, products: fixedProducts } });
+    }
+  }, []);
 
   return (
     <CostManagementContext.Provider value={{ state, dispatch }}>

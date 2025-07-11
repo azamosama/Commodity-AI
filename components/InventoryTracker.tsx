@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCostManagement, useEditing } from '@/contexts/CostManagementContext';
 import { InventoryItem, SalesRecord, Product, Recipe } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { Trash } from 'lucide-react';
+import { calculateTotalUnits } from '@/lib/utils';
 
 export function InventoryTracker() {
   const { state, dispatch } = useCostManagement();
@@ -19,6 +20,11 @@ export function InventoryTracker() {
   const [recurrence, setRecurrence] = useState<string>('none');
   const [rangeStart, setRangeStart] = useState<string>(new Date().toISOString().split('T')[0]);
   const [rangeEnd, setRangeEnd] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => { setHasMounted(true); }, []);
+
+  if (!hasMounted) return null;
 
   // Helper to get remaining stock for a product
   const getRemainingStock = (productId: string) => {
@@ -41,10 +47,25 @@ export function InventoryTracker() {
     return dates;
   };
 
+  // Helper to ensure date is always a string in 'YYYY-MM-DD' format
+  function toDateInputString(date: string | Date | undefined): string {
+    if (!date) return '';
+    if (typeof date === 'string') {
+      // If already in YYYY-MM-DD format, return as is
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+      // Otherwise, try to parse as date string
+      const d = new Date(date);
+      return d.toISOString().split('T')[0];
+    }
+    // If a Date object
+    return date.toISOString().split('T')[0];
+  }
+
   // Handle sales submission (single or recurring)
   const handleSale = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRecipe || quantitySold <= 0) return;
+    if (!selectedRecipe || quantitySold <= 0 || salePrice <= 0) return;
+
     const recipe = state.recipes.find((r) => r.id === selectedRecipe);
     if (!recipe) return;
 
@@ -56,47 +77,61 @@ export function InventoryTracker() {
       saleDates = getRecurrenceDates(new Date(rangeStart), new Date(rangeEnd), recurrence);
     }
 
-    // Initialize local inventory map
-    const localInventory: Record<string, number> = {};
-    state.products.forEach(product => {
-      const item = state.inventory.find(i => i.productId === product.id);
-      localInventory[product.id] = item ? item.currentStock : product.quantity * (product.unitsPerPackage || 0);
+    // Calculate inventory changes for all ingredients
+    const localInventory: { [key: string]: number } = {};
+    state.products.forEach((product) => {
+      const item = state.inventory.find((i) => i.productId === product.id);
+      localInventory[product.id] = item ? item.currentStock : calculateTotalUnits(product);
     });
 
     saleDates.forEach(date => {
-      // Update inventory for each ingredient
+      // Calculate usage for this sale
       recipe.ingredients.forEach((ingredient) => {
-        const usedQty = ingredient.quantity * quantitySold;
-        const prevStock = localInventory[ingredient.productId] ?? 0;
-        const newStock = Math.max(0, prevStock - usedQty);
-        localInventory[ingredient.productId] = newStock;
-        const inventory = state.inventory.find((i) => i.productId === ingredient.productId);
         const product = state.products.find((p) => p.id === ingredient.productId);
-        const unit = product ? product.unit : ingredient.unit;
-        if (inventory) {
-          dispatch({
-            type: 'UPDATE_INVENTORY',
-            payload: {
-              ...inventory,
-              currentStock: newStock,
-              lastUpdated: date,
-              unit,
-            },
-          });
-        } else {
-          const initialStock = product ? product.quantity * (product.unitsPerPackage || 0) : 0;
-          dispatch({
-            type: 'UPDATE_INVENTORY',
-            payload: {
-              productId: ingredient.productId,
-              currentStock: newStock,
-              unit,
-              reorderPoint: 0,
-              lastUpdated: date,
-            },
-          });
+        if (product) {
+          let usage = ingredient.quantity * quantitySold;
+          
+          // Convert to base units if needed
+          if (ingredient.unit === 'count' && product.unitsPerPackage) {
+            usage = ingredient.quantity * quantitySold;
+          } else if (ingredient.unit === product.unit) {
+            usage = ingredient.quantity * quantitySold;
+          }
+          
+          localInventory[product.id] -= usage;
         }
       });
+
+      // Update inventory for all affected products
+      Object.entries(localInventory).forEach(([productId, newStock]) => {
+        const existingItem = state.inventory.find((i) => i.productId === productId);
+        const product = state.products.find((p) => p.id === productId);
+        if (product) {
+          if (existingItem) {
+            dispatch({
+              type: 'UPDATE_INVENTORY',
+              payload: {
+                ...existingItem,
+                currentStock: newStock,
+                lastUpdated: date.toISOString(),
+              },
+            });
+          } else {
+            dispatch({
+              type: 'UPDATE_INVENTORY',
+              payload: {
+                productId,
+                currentStock: newStock,
+                unit: product.unit,
+                reorderPoint: 0,
+                lastUpdated: date.toISOString(),
+                stockHistory: [{ date: date.toISOString(), stock: newStock }],
+              },
+            });
+          }
+        }
+      });
+
       // Add sales record
       dispatch({
         type: 'ADD_SALE',
@@ -104,7 +139,7 @@ export function InventoryTracker() {
           id: uuidv4(),
           recipeId: selectedRecipe,
           quantity: quantitySold,
-          date: date,
+          date: date.toISOString(),
           price: salePrice,
         },
       });
@@ -143,7 +178,7 @@ export function InventoryTracker() {
           ...inventory,
           currentStock: editingStock,
           reorderPoint: editingReorderPoint,
-          lastUpdated: new Date(),
+          lastUpdated: new Date().toISOString(),
         },
       });
       handleCancel();
@@ -166,7 +201,7 @@ export function InventoryTracker() {
 
   const handleSaveEditSale = () => {
     if (editingSale && editingSaleId) {
-      dispatch({ type: 'UPDATE_SALE', payload: { ...editingSale, id: editingSaleId } as SalesRecord });
+      dispatch({ type: 'UPDATE_SALE', payload: { ...editingSale, id: editingSaleId, date: editingSale.date } as SalesRecord });
       setEditingSaleId(null);
       setEditingSale(null);
     }
@@ -180,23 +215,25 @@ export function InventoryTracker() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Recipe/Menu Item</label>
-            <select
-              value={selectedRecipe}
-              onChange={(e) => setSelectedRecipe(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-              onFocus={() => setIsEditing(true)}
-            >
-              <option value="">Select a recipe</option>
-              {state.recipes.map((recipe) => (
-                <option key={recipe.id} value={recipe.id}>{recipe.name}</option>
-              ))}
-            </select>
+            {hasMounted && (
+              <select
+                value={selectedRecipe}
+                onChange={(e) => setSelectedRecipe(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                onFocus={() => setIsEditing(true)}
+              >
+                <option value="">Select a recipe</option>
+                {state.recipes.map((recipe) => (
+                  <option key={recipe.id} value={recipe.id}>{recipe.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Quantity Sold</label>
             <input
               type="number"
-              value={quantitySold}
+              value={quantitySold ?? 0}
               onChange={(e) => setQuantitySold(parseInt(e.target.value))}
               min="0"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -207,7 +244,7 @@ export function InventoryTracker() {
             <label className="block text-sm font-medium text-gray-700">Sale Price (per unit)</label>
             <input
               type="number"
-              value={salePrice}
+              value={isNaN(salePrice) ? '' : salePrice}
               onChange={(e) => setSalePrice(parseFloat(e.target.value))}
               min="0"
               step="0.01"
@@ -279,95 +316,103 @@ export function InventoryTracker() {
       </form>
 
       {/* Sales Records Table */}
-      <div className="border-t pt-6">
-        <h3 className="text-lg font-medium mb-4">Sales Records</h3>
-        <div className="overflow-x-auto mb-8">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipe/Menu Item</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units Sold</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sale Price (per unit)</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {state.sales.map((sale) => {
-                const recipe = state.recipes.find((r) => r.id === sale.recipeId);
-                if (editingSaleId === sale.id && editingSale) {
+      {hasMounted && (
+        <div className="border-t pt-6">
+          <h3 className="text-lg font-medium mb-4">Sales Records</h3>
+          <div className="overflow-x-auto mb-8">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipe/Menu Item</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units Sold</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sale Price (per unit)</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {state.sales.map((sale) => {
+                  const recipe = state.recipes.find((r) => r.id === sale.recipeId);
+                  if (editingSaleId === sale.id && editingSale) {
+                    return (
+                      <tr key={sale.id} className="bg-yellow-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <select
+                            value={editingSale.recipeId}
+                            onChange={e => setEditingSale({ ...editingSale, recipeId: e.target.value })}
+                            className="block w-full rounded-md border-gray-300 shadow-sm"
+                            onFocus={() => setIsEditing(true)}
+                          >
+                            <option value="">Select a recipe</option>
+                            {state.recipes.map((r) => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <input
+                            type="number"
+                            value={editingSale.quantity}
+                            min="0"
+                            onChange={e => setEditingSale({ ...editingSale, quantity: parseInt(e.target.value) })}
+                            className="block w-full rounded-md border-gray-300 shadow-sm"
+                            onFocus={() => setIsEditing(true)}
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <input
+                            type="number"
+                            value={editingSale.price}
+                            min="0"
+                            step="0.01"
+                            onChange={e => setEditingSale({ ...editingSale, price: parseFloat(e.target.value) })}
+                            className="block w-full rounded-md border-gray-300 shadow-sm"
+                            onFocus={() => setIsEditing(true)}
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <input
+                            type="date"
+                            value={toDateInputString(editingSale.date)}
+                            onChange={e => setEditingSale({ ...editingSale, date: e.target.value })}
+                            className="block w-full rounded-md border-gray-300 shadow-sm"
+                            onFocus={() => setIsEditing(true)}
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <button onClick={handleSaveEditSale} className="text-green-600 hover:text-green-900 mr-2">Save</button>
+                          <button onClick={handleCancelEditSale} className="text-gray-600 hover:text-gray-900">Cancel</button>
+                        </td>
+                      </tr>
+                    );
+                  }
                   return (
-                    <tr key={sale.id} className="bg-yellow-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <select
-                          value={editingSale.recipeId}
-                          onChange={e => setEditingSale({ ...editingSale, recipeId: e.target.value })}
-                          className="block w-full rounded-md border-gray-300 shadow-sm"
-                          onFocus={() => setIsEditing(true)}
-                        >
-                          <option value="">Select a recipe</option>
-                          {state.recipes.map((r) => (
-                            <option key={r.id} value={r.id}>{r.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <input
-                          type="number"
-                          value={editingSale.quantity}
-                          min="0"
-                          onChange={e => setEditingSale({ ...editingSale, quantity: parseInt(e.target.value) })}
-                          className="block w-full rounded-md border-gray-300 shadow-sm"
-                          onFocus={() => setIsEditing(true)}
-                        />
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <input
-                          type="number"
-                          value={editingSale.price}
-                          min="0"
-                          step="0.01"
-                          onChange={e => setEditingSale({ ...editingSale, price: parseFloat(e.target.value) })}
-                          className="block w-full rounded-md border-gray-300 shadow-sm"
-                          onFocus={() => setIsEditing(true)}
-                        />
-                      </td>
+                    <tr key={sale.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{recipe ? recipe.name : '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sale.quantity}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${sale.price.toFixed(2)}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(sale.date).toLocaleDateString()}
+                        {toDateInputString(sale.date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        <button onClick={handleSaveEditSale} className="text-green-600 hover:text-green-900 mr-2">Save</button>
-                        <button onClick={handleCancelEditSale} className="text-gray-600 hover:text-gray-900">Cancel</button>
+                        <button
+                          type="button"
+                          className="text-red-500 hover:text-red-700 mr-2"
+                          onClick={() => dispatch({ type: 'DELETE_SALE', payload: sale.id })}
+                          title="Delete Sale Record"
+                        >
+                          <Trash className="w-4 h-4" />
+                        </button>
+                        <button type="button" onClick={() => handleEditSale(sale)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
                       </td>
                     </tr>
                   );
-                }
-                return (
-                  <tr key={sale.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{recipe ? recipe.name : '-'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sale.quantity}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${sale.price.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(sale.date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <button
-                        type="button"
-                        className="text-red-500 hover:text-red-700 mr-2"
-                        onClick={() => dispatch({ type: 'DELETE_SALE', payload: sale.id })}
-                        title="Delete Sale Record"
-                      >
-                        <Trash className="w-4 h-4" />
-                      </button>
-                      <button type="button" onClick={() => handleEditSale(sale)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="border-t pt-6">
         <h3 className="text-lg font-medium mb-4">Current Inventory</h3>
@@ -391,12 +436,13 @@ export function InventoryTracker() {
               {state.products.map((product) => {
                 const item = state.inventory.find((i) => i.productId === product.id);
                 // Show true currentStock, even if negative or positive
-                const currentStock = item ? item.currentStock : (product.quantity * (product.unitsPerPackage || 1));
-                const totalStock = product.quantity * (product.unitsPerPackage || 1);
+                const currentStock = item ? item.currentStock : calculateTotalUnits(product);
+                const totalStock = calculateTotalUnits(product);
                 const usedInRecipes = state.recipes
                   .filter((recipe) => recipe.ingredients.some((ing) => ing.productId === product.id))
                   .map((recipe) => recipe.name)
                   .join(', ');
+                const purchased = calculateTotalUnits(product);
                 return (
                   <tr key={product.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
@@ -405,13 +451,35 @@ export function InventoryTracker() {
                     }>
                       {currentStock} / {totalStock}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{item ? item.reorderPoint : 0}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <input
+                        type="number"
+                        min={0}
+                        value={item ? item.reorderPoint : 0}
+                        onChange={e => {
+                          const newReorderPoint = parseInt(e.target.value, 10) || 0;
+                          if (item) {
+                            dispatch({
+                              type: 'UPDATE_INVENTORY',
+                              payload: {
+                                ...item,
+                                reorderPoint: newReorderPoint,
+                                lastUpdated: item.lastUpdated,
+                              },
+                            });
+                          }
+                        }}
+                        onBlur={e => {
+                          // Optionally, you can persist the change here if needed
+                        }}
+                        className="w-16 px-2 py-1 border rounded text-center"
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.unit}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(item ? item.lastUpdated : '').toLocaleDateString()}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{usedInRecipes || '-'}</td>
                     {/* Variance column */}
                     {(() => {
-                      const purchased = product.quantity * (product.unitsPerPackage || 0);
                       let used = 0;
                       state.recipes.forEach(recipe => {
                         const ingredient = recipe.ingredients.find(ing => ing.productId === product.id);
@@ -428,16 +496,14 @@ export function InventoryTracker() {
                       ];
                     })()}
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      {currentStock < (item ? item.reorderPoint : 0) ? (
+                      {currentStock <= (item ? item.reorderPoint : 0) ? (
                         <span
-                          className="text-red-600 font-semibold cursor-help"
-                          title={`You have ${currentStock} ${product.unit} left, but your reorder point is ${item ? item.reorderPoint : 0} ${product.unit}. Consider ordering at least ${(item ? item.reorderPoint : 0) - currentStock} ${product.unit} to reach your reorder point.`}
+                          className="text-green-600 font-semibold cursor-help"
+                          title={`You have ${currentStock} ${product.unit} left, which is at or below your reorder point (${item ? item.reorderPoint : 0} ${product.unit}). Consider restocking soon.`}
                         >
-                          Restock needed
+                          ✔
                         </span>
-                      ) : (
-                        <span className="text-green-600">✔</span>
-                      )}
+                      ) : null}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <button

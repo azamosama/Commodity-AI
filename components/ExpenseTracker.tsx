@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCostManagement, useEditing } from '@/contexts/CostManagementContext';
 import { Expense, ExpenseCategory } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,6 +16,10 @@ export function ExpenseTracker() {
     recurring: false,
     frequency: 'monthly',
   });
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => { setHasMounted(true); }, []);
+  if (!hasMounted) return null;
 
   const handleEdit = (expenseToEdit: Expense) => {
     setEditingExpense(expenseToEdit);

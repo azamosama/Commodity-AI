@@ -1,5 +1,5 @@
 "use client"
-import InventoryAnalytics from '@/components/InventoryAnalytics';
+import { InventoryAnalytics } from '@/components/InventoryAnalytics';
 import RecipeAnalytics from '@/components/RecipeAnalytics';
 import IngredientDrilldown from '@/components/IngredientDrilldown';
 
