@@ -7,6 +7,7 @@ export function ProfitabilityDashboard() {
   const [expandedRecipeId, setExpandedRecipeId] = useState<string | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
   const [profitPeriod, setProfitPeriod] = useState<'year' | 'month' | 'week' | 'day'>('month');
+  const [revenueMode, setRevenueMode] = useState<'total' | 'perPeriod'>('total');
   useEffect(() => { setHasMounted(true); }, []);
   if (!hasMounted) return null;
 
@@ -195,12 +196,64 @@ export function ProfitabilityDashboard() {
     week: totalWeek,
     day: totalDay,
   };
-  const profit = totalRevenue - breakevenByPeriod[profitPeriod];
+
+  // Calculate revenue per period
+  // Helper functions to get period keys
+  const getDayKey = (date: Date) => date.toISOString().split('T')[0];
+  const getMonthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth() + 1}`;
+  const getYearKey = (date: Date) => `${date.getFullYear()}`;
+
+  // Group revenue by period
+  const revenueByDay: Record<string, number> = {};
+  const revenueByWeek: Record<string, number> = {};
+  const revenueByMonth: Record<string, number> = {};
+  const revenueByYear: Record<string, number> = {};
+
+  salesWithDates.forEach(sale => {
+    const saleRevenue = sale.price * sale.quantity;
+    const dayKey = getDayKey(sale.date);
+    const weekKey = getWeekKey(sale.date);
+    const monthKey = getMonthKey(sale.date);
+    const yearKey = getYearKey(sale.date);
+    
+    revenueByDay[dayKey] = (revenueByDay[dayKey] || 0) + saleRevenue;
+    revenueByWeek[weekKey] = (revenueByWeek[weekKey] || 0) + saleRevenue;
+    revenueByMonth[monthKey] = (revenueByMonth[monthKey] || 0) + saleRevenue;
+    revenueByYear[yearKey] = (revenueByYear[yearKey] || 0) + saleRevenue;
+  });
+
+  // Calculate average revenue per period
+  const revenuePerDay = totalRevenue / 365; // Total revenue divided by total days in year
+  const revenuePerWeek = totalRevenue / 52; // Total revenue divided by total weeks in year
+  const revenuePerMonth = totalRevenue / 12; // Total revenue divided by total months in year
+  const revenuePerYear = totalRevenue; // Total revenue for the year
+
+  // Calculate profit per period
+  const profitPerDay = revenuePerDay - totalDay;
+  const profitPerWeek = revenuePerWeek - totalWeek;
+  const profitPerMonth = revenuePerMonth - totalMonth;
+  const profitPerYear = revenuePerYear - totalYear;
+
+  // Map period to profit value
+  const profitByPeriod = {
+    day: profitPerDay,
+    week: profitPerWeek,
+    month: profitPerMonth,
+    year: profitPerYear,
+  };
+
+  // Map period to revenue value
+  const revenueByPeriod = {
+    day: revenuePerDay,
+    week: revenuePerWeek,
+    month: revenuePerMonth,
+    year: revenuePerYear,
+  };
+
+  const profit = profitByPeriod[profitPeriod];
 
   // Calculate averages
   // Helper to get week, month, year keys
-  const getMonthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth() + 1}`;
-  const getYearKey = (date: Date) => `${date.getFullYear()}`;
 
   const cogsByMonth: Record<string, number> = {};
   const cogsByYear: Record<string, number> = {};
@@ -255,7 +308,7 @@ export function ProfitabilityDashboard() {
     <div className="space-y-6 p-6 bg-white rounded-lg shadow">
       <h2 className="text-2xl font-bold">Breakeven & Profitability Dashboard</h2>
       {/* Period Selector */}
-      <div className="mb-4">
+      <div className="mb-4 flex items-center gap-4">
         <label className="font-medium mr-2">Profit Period:</label>
         <select
           value={profitPeriod}
@@ -267,6 +320,31 @@ export function ProfitabilityDashboard() {
           <option value="week">Week</option>
           <option value="day">Day</option>
         </select>
+        <div className="ml-6 flex items-center gap-2">
+          <label className="font-medium">Revenue Mode:</label>
+          <label className="inline-flex items-center">
+            <input
+              type="radio"
+              className="form-radio"
+              name="revenueMode"
+              value="total"
+              checked={revenueMode === 'total'}
+              onChange={() => setRevenueMode('total')}
+            />
+            <span className="ml-1">Total Revenue</span>
+          </label>
+          <label className="inline-flex items-center ml-4">
+            <input
+              type="radio"
+              className="form-radio"
+              name="revenueMode"
+              value="perPeriod"
+              checked={revenueMode === 'perPeriod'}
+              onChange={() => setRevenueMode('perPeriod')}
+            />
+            <span className="ml-1">Revenue Per {profitPeriod.charAt(0).toUpperCase() + profitPeriod.slice(1)}</span>
+          </label>
+        </div>
       </div>
       {/* Breakeven Breakdown Section */}
       <div className="border-t pt-6 mb-8">
@@ -328,8 +406,12 @@ export function ProfitabilityDashboard() {
           <p className="text-2xl font-bold text-gray-900">${totalExpenses.toFixed(2)}</p>
         </div>
         <div className="bg-gray-50 p-4 rounded-lg">
-          <p className="text-sm font-medium text-gray-500">Total Revenue</p>
-          <p className="text-2xl font-bold text-gray-900">${totalRevenue.toFixed(2)}</p>
+          <p className="text-sm font-medium text-gray-500">{revenueMode === 'total' ? 'Total Revenue' : `Revenue Per ${profitPeriod.charAt(0).toUpperCase() + profitPeriod.slice(1)}`}</p>
+          <p className="text-2xl font-bold text-gray-900">
+            {revenueMode === 'total'
+              ? `$${totalRevenue.toFixed(2)}`
+              : `$${revenueByPeriod[profitPeriod].toFixed(2)}`}
+          </p>
         </div>
         <div className="bg-gray-50 p-4 rounded-lg">
           <p className="text-sm font-medium text-gray-500">Breakeven ({profitPeriod.charAt(0).toUpperCase() + profitPeriod.slice(1)})</p>

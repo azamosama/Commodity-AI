@@ -170,7 +170,7 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
                 lastUpdated: resetDate,
                 stockHistory: [
                   ...(Array.isArray(item.stockHistory) ? item.stockHistory : []),
-                  { date: resetDate, stock: resetQuantity },
+                  { date: resetDate, stock: resetQuantity, source: 'reset' },
                 ],
               }
             : item
@@ -290,12 +290,12 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
       const updatedProduct = { ...product, ...action.payload };
       const updatedPrice = updatedProduct.cost;
       if (existing) {
-        let stockHistory: { date: string; stock: number }[] = Array.isArray(existing.stockHistory) ? existing.stockHistory : [];
+        let stockHistory = Array.isArray(existing.stockHistory) ? existing.stockHistory : [];
         // Only add a new stockHistory entry if the cost (price) changes
         if (latestPrice !== updatedPrice) {
           // Use T00:00:00.000Z for restock/manual update
           const restockDate = new Date(new Date(action.payload.lastUpdated).toISOString().slice(0,10) + 'T00:00:00.000Z').toISOString();
-          stockHistory = [...stockHistory, { date: restockDate, stock: action.payload.currentStock }];
+          stockHistory = [...stockHistory, { date: restockDate, stock: action.payload.currentStock, source: 'manual' }];
         }
         return {
           ...state,
@@ -306,7 +306,7 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
       } else {
         return {
           ...state,
-          inventory: [...state.inventory, { ...action.payload, stockHistory: [{ date: action.payload.lastUpdated, stock: action.payload.currentStock }] as { date: string; stock: number }[] }],
+          inventory: [...state.inventory, { ...action.payload, stockHistory: [{ date: action.payload.lastUpdated, stock: action.payload.currentStock, source: 'manual' }] }],
         };
       }
     }
@@ -437,8 +437,8 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
         return {
           ...p,
           priceHistory: [
-            { date: '2025-06-01T00:00:00.000Z', price: 80, packageSize: p.packageSize, quantity: p.quantity },
-            { date: '2025-07-02T00:00:00.000Z', price: 90, packageSize: p.packageSize, quantity: p.quantity },
+            { date: '2025-06-28', price: 80, packageSize: p.packageSize, quantity: p.quantity },
+            { date: '2025-07-02', price: 90, packageSize: p.packageSize, quantity: p.quantity },
           ]
         };
       }

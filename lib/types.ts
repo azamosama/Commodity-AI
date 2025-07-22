@@ -41,7 +41,7 @@ export interface InventoryItem {
   unit: string;
   reorderPoint: number;
   lastUpdated: string;
-  stockHistory: { date: string; stock: number }[];
+  stockHistory: { date: string; stock: number; source?: string }[];
 }
 
 export interface Expense {

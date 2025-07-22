@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCostManagement } from '@/contexts/CostManagementContext';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { getInventoryTimeline, TimelineEvent } from '@/lib/utils';
 
 export function InventoryAnalytics() {
   const { state } = useCostManagement();
@@ -20,80 +21,9 @@ export function InventoryAnalytics() {
   const productOptions = state.products.filter(p => productsWithHistory.some(i => i.productId === p.id));
 
   // --- Replay logic ---
-  let timeline: { date: string; type: 'sale' | 'restock' | 'initial'; amount: number; stock: number | null; info?: any }[] = [];
+  let timeline: TimelineEvent[] = [];
   if (selectedInventory) {
-    // 1. Gather all restock events (manual updates where stock increases)
-    const stockHistory = [...selectedInventory.stockHistory]
-      .map(entry => ({ ...entry, date: new Date(entry.date) }))
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-    let prevStock = stockHistory.length > 0 ? stockHistory[0].stock : 0;
-
-    // 2. Gather all sales that use this product
-    const salesForProduct = state.sales
-      .map(sale => {
-        const recipe = state.recipes.find(r => r.id === sale.recipeId);
-        if (!recipe) return null;
-        const ingredient = recipe.ingredients.find(ing => ing.productId === selectedInventory.productId);
-        if (!ingredient) return null;
-        // Calculate usage for this sale
-        let usage = ingredient.quantity * sale.quantity;
-        return {
-          date: new Date(sale.date),
-          type: 'sale' as const,
-          amount: -usage,
-          sale,
-          recipeName: recipe.name,
-        };
-      })
-      .filter(Boolean) as { date: Date; type: 'sale'; amount: number; sale: any; recipeName: string }[];
-
-    // 3. Find the earliest date among stockHistory and sales
-    let allDates = [];
-    if (stockHistory.length > 0) allDates.push(stockHistory[0].date);
-    if (salesForProduct.length > 0) allDates.push(salesForProduct[0].date);
-    const earliestDate = allDates.length > 0 ? new Date(Math.min(...allDates.map(d => d.getTime()))) : new Date();
-
-    // 4. Add explicit initial stock event just before the earliest event
-    let initialStock = stockHistory.length > 0 ? stockHistory[0].stock : (state.products.find(p => p.id === selectedInventory.productId)?.quantity || 0);
-    // Subtract 1 second to ensure initial stock is first
-    const initialStockDate = new Date(earliestDate.getTime() - 1000);
-    timeline.push({ date: initialStockDate.toISOString(), type: 'initial', amount: initialStock, stock: initialStock });
-
-    // 5. Add restock events (skip the first, which is initial stock)
-    stockHistory.forEach((entry, idx) => {
-      if (idx === 0) return;
-      if (entry.stock > prevStock) {
-        timeline.push({ date: entry.date.toISOString(), type: 'restock', amount: entry.stock - prevStock, stock: entry.stock });
-      }
-      prevStock = entry.stock;
-    });
-
-    // 6. Add sales events
-    salesForProduct.forEach(saleEvent => {
-      timeline.push({
-        date: saleEvent.date.toISOString(),
-        type: 'sale',
-        amount: saleEvent.amount,
-        stock: null,
-        info: { sale: saleEvent.sale, recipeName: saleEvent.recipeName },
-      });
-    });
-
-    // 7. Sort all events by full ISO timestamp
-    timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // 8. Replay events to compute stock after each event
-    let runningStock = initialStock;
-    timeline = timeline.map((event, idx) => {
-      if (event.type === 'initial') {
-        runningStock = event.stock !== null ? event.stock : runningStock;
-      } else if (event.type === 'restock') {
-        runningStock = event.stock !== null ? event.stock : runningStock;
-      } else if (event.type === 'sale') {
-        runningStock += event.amount; // amount is negative
-      }
-      return { ...event, stock: runningStock };
-    });
+    timeline = getInventoryTimeline(selectedInventory.productId, state);
   }
 
   // Prepare chart data
@@ -102,6 +32,7 @@ export function InventoryAnalytics() {
     stock: event.stock,
     type: event.type,
     ...(event.info ? { recipe: event.info.recipeName } : {}),
+    ...(event.source ? { source: event.source } : {}),
   }));
   // Sort by date ascending
   chartData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -109,11 +40,54 @@ export function InventoryAnalytics() {
   chartData = chartData.map((d, i) => ({ ...d, index: i }));
 
   // Prepare restock log data
-  const restockLog = timeline.filter(event => event.type === 'restock' && event.amount > 0).map(event => ({
-    date: event.date.slice(0, 10),
-    amount: event.amount,
-    stock: event.stock,
-  }));
+  let restockLog: { date: string; amount: number; stock: number; source: string; cost?: number }[] = [];
+  if (selectedInventory) {
+    // Manual restocks from restockHistory, using timeline for stock after restock
+    const product = state.products.find(p => p.id === selectedInventory.productId);
+    if (product && Array.isArray(product.restockHistory)) {
+      // Get all manual restock events from timeline in order
+      const timelineManualRestocks = timeline.filter(event => event.type === 'restock' && event.source === 'manual');
+      let timelineIdx = 0;
+      product.restockHistory.forEach(restock => {
+        // Find the next matching manual restock event in timeline (in order)
+        let matchedEvent = null;
+        while (timelineIdx < timelineManualRestocks.length) {
+          const event = timelineManualRestocks[timelineIdx];
+          timelineIdx++;
+          // Match by date (to the day) and amount (float-safe)
+          if (event.date.slice(0, 10) === restock.date.slice(0, 10) && Math.abs(event.amount - restock.quantity) < 1e-6) {
+            matchedEvent = event;
+            break;
+          }
+        }
+        restockLog.push({
+          date: restock.date.slice(0, 10),
+          amount: restock.quantity,
+          stock: matchedEvent ? matchedEvent.stock ?? NaN : NaN,
+          source: 'manual',
+          cost: restock.cost,
+        });
+      });
+    }
+    // Resets/quantity changes from stockHistory with source 'reset', using timeline for stock after reset
+    selectedInventory.stockHistory.forEach(entry => {
+      if (entry.source === 'reset') {
+        const timelineEvent = timeline.find(event =>
+          event.type === 'restock' &&
+          event.source === 'reset' &&
+          event.date.slice(0, 10) === entry.date.slice(0, 10)
+        );
+        restockLog.push({
+          date: entry.date.slice(0, 10),
+          amount: entry.stock, // this is the new quantity after reset
+          stock: timelineEvent ? timelineEvent.stock ?? NaN : entry.stock,
+          source: 'reset',
+        });
+      }
+    });
+    // Sort by date
+    restockLog.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -143,12 +117,17 @@ export function InventoryAnalytics() {
                 <Tooltip formatter={(value, name, props) => {
                   const idx = props && props.payload && props.payload.index !== undefined ? props.payload.index : null;
                   const type = props && props.payload && props.payload.type;
+                  const source = props && props.payload && props.payload.source;
                   if (idx === 0 && type === 'initial') {
                     return [`${value} (initial stock)`, 'Stock'];
                   } else if (type === 'sale') {
                     return [`${value} (after sale${props.payload.recipe ? ' of ' + props.payload.recipe : ''})`, 'Stock'];
                   } else if (type === 'restock') {
-                    return [`${value} (after restock)`, 'Stock'];
+                    if (source === 'reset') {
+                      return [`${value} (after quantity reset)`, 'Stock'];
+                    } else {
+                      return [`${value} (after manual restock)`, 'Stock'];
+                    }
                   }
                   return [`${value}`, 'Stock'];
                 }} />
@@ -169,6 +148,7 @@ export function InventoryAnalytics() {
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Restocked</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock After Restock</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -176,7 +156,8 @@ export function InventoryAnalytics() {
                     <tr key={idx}>
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{entry.date}</td>
                       <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{entry.amount}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{entry.stock}</td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{Number.isFinite(entry.stock) ? entry.stock : "N/A"}</td>
+                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{entry.source === 'reset' ? 'Quantity Change' : 'Manual'}</td>
                     </tr>
                   ))}
                 </tbody>

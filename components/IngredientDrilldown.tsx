@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCostManagement } from '@/contexts/CostManagementContext';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { getInventoryTimeline, TimelineEvent } from '@/lib/utils';
 
 export default function IngredientDrilldown() {
   const { state } = useCostManagement();
@@ -45,7 +46,7 @@ export default function IngredientDrilldown() {
               <ul className="divide-y divide-gray-200">
                 {selectedRecipe.ingredients.map(ingredient => {
                   const product = state.products.find(p => p.id === ingredient.productId);
-                  const inventory = state.inventory.find(i => i.productId === ingredient.productId);
+                  const inventoryTimeline: TimelineEvent[] = product ? getInventoryTimeline(product.id, state) : [];
                   return (
                     <li key={ingredient.productId} className="py-4">
                       <button
@@ -85,16 +86,13 @@ export default function IngredientDrilldown() {
                           {/* Inventory History Chart */}
                           <div>
                             <h5 className="font-medium mb-1">Inventory Level History</h5>
-                            {inventory && inventory.stockHistory && inventory.stockHistory.length > 0 ? (
+                            {inventoryTimeline.length > 0 ? (
                               <div style={{ width: '100%', height: 180 }}>
                                 <ResponsiveContainer>
-                                  <LineChart data={inventory.stockHistory
-                                    .slice()
-                                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                                    .map(entry => ({
-                                      date: new Date(entry.date).toISOString().slice(0, 10),
-                                      stock: entry.stock,
-                                    }))} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                                  <LineChart data={inventoryTimeline.map(event => ({
+                                    date: event.date.slice(0, 10),
+                                    stock: event.stock,
+                                  }))} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" />
                                     <XAxis dataKey="date" domain={['dataMin', 'dataMax']} type="category" />
                                     <YAxis allowDecimals={false} />
