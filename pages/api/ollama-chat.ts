@@ -4,6 +4,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
   const { messages, breakevenPerDay, dataSummary } = req.body;
 
   // Validate input
@@ -24,7 +25,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ? [{ role: 'system', content: systemPrompt }, ...messages]
       : messages;
 
-    const ollamaRes = await fetch('http://localhost:11434/api/chat', {
+    // Use env variable for Ollama host or fall back to localhost
+    const ollamaHost = process.env.OLLAMA_HOST || "http://127.0.0.1:11434";
+    const endpoint = `${ollamaHost}/api/chat`;
+
+    console.log(`Sending request to Ollama at: ${endpoint}`);
+
+    const ollamaRes = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -39,12 +46,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Ollama server returned an error.' });
     }
 
-    // Read the streaming response
     const reader = ollamaRes.body?.getReader();
     if (!reader) {
       console.error('Ollama API error: No response body from Ollama server.');
       return res.status(500).json({ error: 'No response body from Ollama server.' });
     }
+
     let fullAnswer = '';
     const decoder = new TextDecoder();
 
@@ -72,6 +79,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     res.status(200).json({ answer: fullAnswer });
   } catch (err) {
     console.error('Ollama API error:', err);
-    res.status(500).json({ error: 'Failed to connect to local Ollama server.' });
+    res.status(500).json({ error: 'Failed to connect to Ollama server.' });
   }
 }
