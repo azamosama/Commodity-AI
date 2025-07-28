@@ -98,10 +98,10 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              {/* Questions tab hidden
+              {/* Flavor GPT tab hidden
               <a href="/questions" className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100">
                 <span>🧠</span>
-                <span>Questions?</span>
+                <span>Flavor GPT</span>
               </a>
               */}
             </SidebarMenu>

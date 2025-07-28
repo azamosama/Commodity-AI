@@ -153,10 +153,10 @@ export function ProductEntryForm() {
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-4 p-6 bg-white rounded-lg shadow">
-        <h2 className="text-2xl font-bold mb-4">{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
+      <form onSubmit={handleSubmit} className="space-y-4 p-3 sm:p-6 bg-white rounded-lg shadow">
+        <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           <div>
             <div className="flex items-center">
               <label className="block text-sm font-medium text-gray-700">Product Name</label>
@@ -424,10 +424,10 @@ export function ProductEntryForm() {
           </div>
         )}
 
-        <div className="mt-6 flex items-center space-x-4">
+        <div className="mt-6 flex flex-col sm:flex-row items-center space-y-2 sm:space-y-0 sm:space-x-4">
           <button
             type="submit"
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="w-full flex justify-center py-3 sm:py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             {editingProduct ? 'Update Product' : 'Add Product'}
           </button>
@@ -435,7 +435,7 @@ export function ProductEntryForm() {
             <button
               type="button"
               onClick={handleCancel}
-              className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="w-full flex justify-center py-3 sm:py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               Cancel
             </button>
@@ -444,8 +444,8 @@ export function ProductEntryForm() {
 
         {/* Product List Table */}
         {hasMounted && state.products.length > 0 && (
-          <div className="mt-8">
-            <h3 className="text-lg font-medium mb-2">Current Products</h3>
+          <div className="mt-6 sm:mt-8">
+            <h3 className="text-base sm:text-lg font-medium mb-2">Current Products</h3>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -469,18 +469,20 @@ export function ProductEntryForm() {
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.packageSize} {product.packageUnit}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.unitsPerPackage || '-'}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">${product.cost}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <button
-                            type="button"
-                            className="text-red-500 hover:text-red-700 mr-2"
-                            onClick={() => dispatch({ type: 'DELETE_PRODUCT', payload: product.id })}
-                            title="Delete Product"
-                          >
-                            <Trash className="w-4 h-4" />
-                          </button>
-                          <button type="button" onClick={() => handleEdit(product)} className="text-indigo-600 hover:text-indigo-900 mr-2">Edit</button>
-                          <button type="button" onClick={() => setRestockProduct(product)} className="text-green-600 hover:text-green-900 mr-2">Restock</button>
-                          <button type="button" onClick={() => setExpandedRestock(expandedRestock === product.id ? null : product.id)} className="text-gray-600 hover:text-gray-900">{expandedRestock === product.id ? 'Hide' : 'Show'} Restocks</button>
+                        <td className="px-2 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div className="flex flex-wrap gap-1 sm:gap-2">
+                            <button
+                              type="button"
+                              className="text-red-500 hover:text-red-700 p-1 sm:p-0"
+                              onClick={() => dispatch({ type: 'DELETE_PRODUCT', payload: product.id })}
+                              title="Delete Product"
+                            >
+                              <Trash className="w-4 h-4" />
+                            </button>
+                            <button type="button" onClick={() => handleEdit(product)} className="text-indigo-600 hover:text-indigo-900 text-xs sm:text-sm">Edit</button>
+                            <button type="button" onClick={() => setRestockProduct(product)} className="text-green-600 hover:text-green-900 text-xs sm:text-sm">Restock</button>
+                            <button type="button" onClick={() => setExpandedRestock(expandedRestock === product.id ? null : product.id)} className="text-gray-600 hover:text-gray-900 text-xs sm:text-sm">{expandedRestock === product.id ? 'Hide' : 'Show'} Restocks</button>
+                          </div>
                         </td>
                       </tr>
                       {expandedRestock === product.id && (
@@ -521,8 +523,8 @@ export function ProductEntryForm() {
         )}
       </form>
       {restockProduct && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-30">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-30 p-4">
+          <div className="bg-white rounded-lg shadow-lg p-4 sm:p-6 w-full max-w-md">
             <h3 className="text-lg font-bold mb-4">Restock Product: {restockProduct.name}</h3>
             <form onSubmit={e => {
               e.preventDefault();
@@ -554,9 +556,9 @@ export function ProductEntryForm() {
                 <label className="block font-medium mb-1">Date of Restock</label>
                 <input type="date" className="input w-full" value={restockDate} onChange={e => setRestockDate(e.target.value)} required />
               </div>
-              <div className="flex justify-end space-x-2">
-                <button type="button" className="btn-secondary" onClick={() => setRestockProduct(null)}>Cancel</button>
-                <button type="submit" className="btn-primary">Add Restock</button>
+              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
+                <button type="button" className="btn-secondary py-2 px-4" onClick={() => setRestockProduct(null)}>Cancel</button>
+                <button type="submit" className="btn-primary py-2 px-4">Add Restock</button>
               </div>
             </form>
           </div>

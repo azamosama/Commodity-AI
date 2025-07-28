@@ -150,9 +150,9 @@ export default function QuestionsPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-4">Questions?</h2>
-      <div className="border rounded-lg p-4 min-h-[3rem] bg-gray-50 mb-4">
+    <div className="max-w-2xl mx-auto p-3 sm:p-6">
+      <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Flavor GPT</h2>
+      <div className="border rounded-lg p-3 sm:p-4 min-h-[3rem] bg-gray-50 mb-3 sm:mb-4">
         {messages.length === 0 && <div className="text-gray-400">Ask anything about your data, calculations, or how the app works!</div>}
         {messages.map((msg, idx) => (
           <div key={idx} className={`mb-2 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}> 
@@ -165,13 +165,13 @@ export default function QuestionsPage() {
       </div>
       <form onSubmit={sendMessage} className="flex gap-2">
         <input
-          className="flex-1 border rounded p-2"
+          className="flex-1 border rounded p-2 text-sm sm:text-base"
           value={input}
           onChange={e => setInput(e.target.value)}
           placeholder="Type your question..."
           disabled={loading}
         />
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded" disabled={loading || !input.trim()}>
+        <button type="submit" className="bg-blue-600 text-white px-3 sm:px-4 py-2 rounded text-sm sm:text-base whitespace-nowrap" disabled={loading || !input.trim()}>
           Send
         </button>
       </form>
