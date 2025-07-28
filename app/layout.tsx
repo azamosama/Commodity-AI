@@ -33,13 +33,13 @@ export default function RootLayout({
             <SidebarProvider>
               <AppSidebar />
               <SidebarInset>
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b px-2 sm:px-4">
+                <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sm:px-6">
                   <SidebarTrigger className="-ml-1" />
                   <div className="flex items-center gap-2">
-                    <h1 className="text-base sm:text-lg font-semibold">Flavor Pulse</h1>
+                    <h1 className="text-lg sm:text-xl font-semibold">Flavor Pulse</h1>
                   </div>
                 </header>
-                <main className="flex-1 overflow-auto p-2 sm:p-4">{children}</main>
+                <main className="flex-1 overflow-auto p-4 sm:p-6">{children}</main>
               </SidebarInset>
             </SidebarProvider>
           </CostManagementProvider>

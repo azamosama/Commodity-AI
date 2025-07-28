@@ -100,13 +100,38 @@
       font-size: 14px;
     }
     
-    /* Improve spacing for mobile */
+    /* Ensure proper spacing on mobile */
     .space-y-4 > * + * {
       margin-top: 1rem;
     }
     
     .space-y-6 > * + * {
       margin-top: 1.5rem;
+    }
+    
+    /* Ensure content is visible and not cut off */
+    .overflow-x-auto {
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Better text readability on mobile */
+    p, div, span {
+      word-wrap: break-word;
+    }
+    
+    /* Ensure all content is visible on mobile */
+    .min-h-screen {
+      min-height: 100vh;
+    }
+    
+    /* Prevent content from being hidden */
+    .hidden {
+      display: none !important;
+    }
+    
+    /* Ensure proper container sizing */
+    .max-w-7xl {
+      max-width: 100%;
     }
   }
 }
