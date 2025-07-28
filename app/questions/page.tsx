@@ -1,13 +1,13 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { useCostManagement } from '@/contexts/CostManagementContext';
+import { useCostManagement, CostManagementProvider } from '@/contexts/CostManagementContext';
 
 const CHAT_HISTORY_KEY = 'questionsChatHistory';
 
 // Static process documentation summary
 const processDocumentation = `Breakeven is the minimum revenue needed to cover all fixed and variable expenses. Per Year: Sum all annualized expenses. Per Month: Sum all monthly expenses. Per Week: Annual expenses divided by 52. Per Day: Annual expenses divided by 365. Fixed costs (e.g., utilities) are spread evenly over all periods. Variable costs (COGS) are based on actual sales and ingredient usage, averaged over periods with sales. The cost per serving is calculated using the historical price of each ingredient as of the sale date. Revenue is the sum of all sales for the selected period. Profit is revenue minus total breakeven for the selected period. Inventory increases when you restock and decreases as recipes are sold. Changing 'Quantity' in Product Management resets the stock. Restocking does not affect cost/analytics fields, only inventory.`;
 
-export default function QuestionsPage() {
+function QuestionsContent() {
   const { state } = useCostManagement();
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
@@ -176,5 +176,13 @@ export default function QuestionsPage() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function QuestionsPage() {
+  return (
+    <CostManagementProvider>
+      <QuestionsContent />
+    </CostManagementProvider>
   );
 } 
