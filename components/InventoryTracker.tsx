@@ -446,10 +446,54 @@ export function InventoryTracker() {
                 return (
                   <tr key={product.id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
-                    <td className={
-                      `px-6 py-4 whitespace-nowrap text-sm ${currentStock < (item ? item.reorderPoint : 0) ? 'text-red-600 font-bold' : 'text-gray-900'}`
-                    }>
-                      {currentStock} / {totalStock}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <div className="flex items-center space-x-2">
+                        <span className={currentStock < (item ? item.reorderPoint : 0) ? 'text-red-600 font-bold' : 'text-gray-900'}>
+                          {currentStock} / {totalStock}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newStock = prompt(`Enter new stock level for ${product.name} (current: ${currentStock} ${product.unit}):`);
+                            if (newStock !== null && !isNaN(Number(newStock))) {
+                              const newStockValue = Number(newStock);
+                              if (item) {
+                                const updatedStockHistory = [
+                                  ...(item.stockHistory || []),
+                                  { date: new Date().toISOString(), stock: newStockValue, source: 'manual-edit' }
+                                ];
+                                dispatch({
+                                  type: 'UPDATE_INVENTORY',
+                                  payload: {
+                                    ...item,
+                                    currentStock: newStockValue,
+                                    lastUpdated: new Date().toISOString(),
+                                    stockHistory: updatedStockHistory,
+                                  },
+                                });
+                              } else {
+                                // Create new inventory item if it doesn't exist
+                                const newItem: InventoryItem = {
+                                  productId: product.id,
+                                  currentStock: newStockValue,
+                                  unit: product.unit,
+                                  reorderPoint: 0,
+                                  lastUpdated: new Date().toISOString(),
+                                  stockHistory: [{ date: new Date().toISOString(), stock: newStockValue, source: 'manual-edit' }],
+                                };
+                                dispatch({
+                                  type: 'UPDATE_INVENTORY',
+                                  payload: newItem,
+                                });
+                              }
+                            }
+                          }}
+                          className="text-blue-600 hover:text-blue-900 text-xs px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
+                          title={`Edit current stock for ${product.name}`}
+                        >
+                          ✏️
+                        </button>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <input
