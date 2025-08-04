@@ -448,15 +448,15 @@ export function InventoryTracker() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center space-x-2">
-                        <span className={currentStock < (item ? item.reorderPoint : 0) ? 'text-red-600 font-bold' : 'text-gray-900'}>
-                          {currentStock} / {totalStock}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newStock = prompt(`Enter new stock level for ${product.name} (current: ${currentStock} ${product.unit}):`);
-                            if (newStock !== null && !isNaN(Number(newStock))) {
-                              const newStockValue = Number(newStock);
+                        <span className="text-xs text-gray-500 font-medium">Edit:</span>
+                        <div className="flex items-center space-x-1">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={currentStock}
+                            onChange={(e) => {
+                              const newStockValue = Number(e.target.value) || 0;
                               if (item) {
                                 const updatedStockHistory = [
                                   ...(item.stockHistory || []),
@@ -486,13 +486,34 @@ export function InventoryTracker() {
                                   payload: newItem,
                                 });
                               }
-                            }
-                          }}
-                          className="text-blue-600 hover:text-blue-900 text-xs px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition-colors"
-                          title={`Edit current stock for ${product.name}`}
-                        >
-                          ✏️
-                        </button>
+                            }}
+                            className={`w-16 px-2 py-1 border rounded text-center text-sm ${
+                              currentStock < (item ? item.reorderPoint : 0) ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                            }`}
+                            onFocus={() => setIsEditing(true)}
+                          />
+                          <span className="text-gray-500">/</span>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={totalStock}
+                            onChange={(e) => {
+                              const newTotalStock = Number(e.target.value) || 0;
+                              // Update the product's package size to reflect the new total
+                              dispatch({
+                                type: 'UPDATE_PRODUCT',
+                                payload: {
+                                  ...product,
+                                  packageSize: newTotalStock,
+                                },
+                              });
+                            }}
+                            className="w-16 px-2 py-1 border border-gray-300 rounded text-center text-sm"
+                            onFocus={() => setIsEditing(true)}
+                          />
+                        </div>
+                        <span className="text-gray-500 text-xs">{product.unit}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
