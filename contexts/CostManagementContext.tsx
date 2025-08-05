@@ -361,7 +361,10 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
 const getRestaurantId = () => {
   if (typeof window !== 'undefined') {
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('restaurant') || 'default';
+    const restaurant = urlParams.get('restaurant');
+    console.log('CostManagementContext: Current URL params:', window.location.search);
+    console.log('CostManagementContext: Restaurant ID from URL:', restaurant);
+    return restaurant || 'default';
   }
   return 'default';
 };

@@ -1,6 +1,7 @@
 "use client"
 
 import { BarChart3, Building2, Calculator, Home, Package, TrendingUp } from "lucide-react"
+import Link from "next/link"
 
 import {
   Sidebar,
@@ -89,6 +90,7 @@ export function AppSidebar() {
       const urlParams = new URLSearchParams(window.location.search);
       const restaurant = urlParams.get('restaurant');
       if (restaurant) {
+        console.log(`Sidebar: Adding restaurant=${restaurant} to ${baseUrl}`);
         return `${baseUrl}?restaurant=${restaurant}`;
       }
     }
@@ -105,10 +107,10 @@ export function AppSidebar() {
               {items.filter(item => !item.hidden).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <a href={getRestaurantUrl(item.url)}>
+                    <Link href={getRestaurantUrl(item.url)}>
                       <item.icon />
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}

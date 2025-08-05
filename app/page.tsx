@@ -36,7 +36,10 @@ function RestaurantLinks() {
   useEffect(() => {
     setCurrentUrl(window.location.origin);
     const urlParams = new URLSearchParams(window.location.search);
-    setCurrentRestaurant(urlParams.get('restaurant'));
+    const restaurant = urlParams.get('restaurant');
+    console.log('Dashboard: Current URL:', window.location.href);
+    console.log('Dashboard: Restaurant parameter:', restaurant);
+    setCurrentRestaurant(restaurant);
   }, []);
 
   // Only show this component on the default URL (not restaurant-specific URLs)
