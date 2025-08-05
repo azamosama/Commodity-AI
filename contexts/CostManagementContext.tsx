@@ -356,12 +356,23 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
   }
 }
 
-const LOCAL_STORAGE_KEY = 'costManagementState';
+// Get restaurant ID from URL parameter
+const getRestaurantId = () => {
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('restaurant') || 'default';
+  }
+  return 'default';
+};
+
+const getLocalStorageKey = (restaurantId: string) => `costManagementState_${restaurantId}`;
 
 export function CostManagementProvider({ children }: { children: ReactNode }) {
   const getInitialState = () => {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const restaurantId = getRestaurantId();
+      const storageKey = getLocalStorageKey(restaurantId);
+      const stored = localStorage.getItem(storageKey);
       if (stored) {
         try {
           return JSON.parse(stored);
@@ -381,7 +392,9 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
   // Persist to localStorage on every state change
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+      const restaurantId = getRestaurantId();
+      const storageKey = getLocalStorageKey(restaurantId);
+      localStorage.setItem(storageKey, JSON.stringify(state));
     }
   }, [state]);
 
@@ -389,7 +402,9 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onStorage = (e: StorageEvent) => {
-      if (e.key === LOCAL_STORAGE_KEY && e.newValue) {
+      const restaurantId = getRestaurantId();
+      const storageKey = getLocalStorageKey(restaurantId);
+      if (e.key === storageKey && e.newValue) {
         try {
           const newState = JSON.parse(e.newValue);
           if (JSON.stringify(newState) !== JSON.stringify(state)) {

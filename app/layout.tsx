@@ -7,6 +7,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { RestaurantProvider } from "@/contexts/restaurant-context"
 import { CostManagementProvider } from '@/contexts/CostManagementContext';
+import { RestaurantIndicator } from '@/components/RestaurantIndicator';
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -39,7 +40,10 @@ export default function RootLayout({
                     <h1 className="text-lg sm:text-xl font-semibold">Flavor Pulse</h1>
                   </div>
                 </header>
-                <main className="flex-1 overflow-auto p-4 sm:p-6">{children}</main>
+                <main className="flex-1 overflow-auto p-4 sm:p-6">
+                  <RestaurantIndicator />
+                  {children}
+                </main>
               </SidebarInset>
             </SidebarProvider>
           </CostManagementProvider>
