@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,48 +16,144 @@ import { InventoryTracker } from '@/components/InventoryTracker';
 import { ProfitabilityDashboard } from '@/components/ProfitabilityDashboard';
 import { CostSavingRecommendations } from '@/components/CostSavingRecommendations';
 
+interface Restaurant {
+  id: string;
+  name: string;
+}
+
 function RestaurantLinks() {
   const currentUrl = typeof window !== 'undefined' ? window.location.origin : '';
-  
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([
+    { id: 'restaurant-a', name: 'Restaurant A' },
+    { id: 'restaurant-b', name: 'Restaurant B' }
+  ]);
+  const [newRestaurantName, setNewRestaurantName] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+
+  // Only show this component on the default URL (not restaurant-specific URLs)
+  const urlParams = new URLSearchParams(window.location.search);
+  const currentRestaurant = urlParams.get('restaurant');
+  if (currentRestaurant) {
+    return null; // Hide on restaurant-specific URLs
+  }
+
+  const addRestaurant = () => {
+    if (newRestaurantName.trim()) {
+      const newId = `restaurant-${Date.now()}`;
+      setRestaurants([...restaurants, { id: newId, name: newRestaurantName.trim() }]);
+      setNewRestaurantName('');
+    }
+  };
+
+  const updateRestaurantName = (id: string) => {
+    if (editingName.trim()) {
+      setRestaurants(restaurants.map((r: Restaurant) => 
+        r.id === id ? { ...r, name: editingName.trim() } : r
+      ));
+      setEditingId(null);
+      setEditingName('');
+    }
+  };
+
+  const deleteRestaurant = (id: string) => {
+    setRestaurants(restaurants.filter((r: Restaurant) => r.id !== id));
+  };
+
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-      <h3 className="text-lg font-semibold mb-3">Restaurant Links</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <h4 className="font-medium text-gray-700 mb-2">Restaurant A</h4>
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              value={`${currentUrl}?restaurant=restaurant-a`}
-              readOnly
-              className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm bg-white"
-            />
-            <button
-              onClick={() => navigator.clipboard.writeText(`${currentUrl}?restaurant=restaurant-a`)}
-              className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-            >
-              Copy
-            </button>
-          </div>
-        </div>
-        <div>
-          <h4 className="font-medium text-gray-700 mb-2">Restaurant B</h4>
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              value={`${currentUrl}?restaurant=restaurant-b`}
-              readOnly
-              className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm bg-white"
-            />
-            <button
-              onClick={() => navigator.clipboard.writeText(`${currentUrl}?restaurant=restaurant-b`)}
-              className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-            >
-              Copy
-            </button>
-          </div>
+      <h3 className="text-lg font-semibold mb-3">Restaurant Link Generator</h3>
+      
+      {/* Add New Restaurant */}
+      <div className="mb-4 p-3 bg-white rounded border">
+        <h4 className="font-medium text-gray-700 mb-2">Add New Restaurant</h4>
+        <div className="flex items-center space-x-2">
+          <input
+            type="text"
+            value={newRestaurantName}
+            onChange={(e) => setNewRestaurantName(e.target.value)}
+            placeholder="Enter restaurant name (e.g., Joe's Pizza)"
+            className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm"
+            onKeyPress={(e) => e.key === 'Enter' && addRestaurant()}
+          />
+          <button
+            onClick={addRestaurant}
+            className="px-4 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+          >
+            Add
+          </button>
         </div>
       </div>
+
+      {/* Restaurant Links */}
+      <div className="space-y-3">
+        {restaurants.map((restaurant: Restaurant) => (
+          <div key={restaurant.id} className="p-3 bg-white rounded border">
+            <div className="flex items-center justify-between mb-2">
+              {editingId === restaurant.id ? (
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    className="px-2 py-1 border border-gray-300 rounded text-sm"
+                    onKeyPress={(e) => e.key === 'Enter' && updateRestaurantName(restaurant.id)}
+                  />
+                  <button
+                    onClick={() => updateRestaurantName(restaurant.id)}
+                    className="text-green-600 hover:text-green-800 text-sm"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingId(null);
+                      setEditingName('');
+                    }}
+                    className="text-gray-600 hover:text-gray-800 text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <h4 className="font-medium text-gray-700">{restaurant.name}</h4>
+                  <button
+                    onClick={() => {
+                      setEditingId(restaurant.id);
+                      setEditingName(restaurant.name);
+                    }}
+                    className="text-blue-600 hover:text-blue-800 text-sm"
+                  >
+                    Edit Name
+                  </button>
+                  <button
+                    onClick={() => deleteRestaurant(restaurant.id)}
+                    className="text-red-600 hover:text-red-800 text-sm"
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="text"
+                value={`${currentUrl}?restaurant=${restaurant.id}`}
+                readOnly
+                className="flex-1 px-3 py-2 border border-gray-300 rounded text-sm bg-gray-50"
+              />
+              <button
+                onClick={() => navigator.clipboard.writeText(`${currentUrl}?restaurant=${restaurant.id}`)}
+                className="px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+              >
+                Copy Link
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      
       <p className="text-sm text-gray-600 mt-3">
         Each restaurant gets their own unique link with isolated data. Share these links with different restaurants.
       </p>
