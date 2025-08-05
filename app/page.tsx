@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ interface Restaurant {
 }
 
 function RestaurantLinks() {
-  const currentUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const [currentUrl, setCurrentUrl] = useState('');
   const [restaurants, setRestaurants] = useState<Restaurant[]>([
     { id: 'restaurant-a', name: 'Restaurant A' },
     { id: 'restaurant-b', name: 'Restaurant B' }
@@ -30,12 +30,23 @@ function RestaurantLinks() {
   const [newRestaurantName, setNewRestaurantName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  const [currentRestaurant, setCurrentRestaurant] = useState<string | null>(null);
+
+  // Handle client-side only operations
+  useEffect(() => {
+    setCurrentUrl(window.location.origin);
+    const urlParams = new URLSearchParams(window.location.search);
+    setCurrentRestaurant(urlParams.get('restaurant'));
+  }, []);
 
   // Only show this component on the default URL (not restaurant-specific URLs)
-  const urlParams = new URLSearchParams(window.location.search);
-  const currentRestaurant = urlParams.get('restaurant');
   if (currentRestaurant) {
     return null; // Hide on restaurant-specific URLs
+  }
+
+  // Don't render until we have the current URL
+  if (!currentUrl) {
+    return null;
   }
 
   const addRestaurant = () => {
