@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// Simple in-memory storage (in production, you'd use a real database)
+// Use Vercel KV or a simple file-based storage for persistence
+// For now, we'll use a more robust in-memory approach with better error handling
 const restaurantData: { [key: string]: any } = {};
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -11,16 +12,28 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
   }
 
   if (req.method === 'GET') {
-    // Retrieve data for a restaurant
-    const data = restaurantData[restaurantId] || null;
-    return res.status(200).json({ data });
+    try {
+      // Retrieve data for a restaurant
+      const data = restaurantData[restaurantId] || null;
+      console.log(`GET data for restaurant ${restaurantId}:`, data ? 'found' : 'not found');
+      return res.status(200).json({ data });
+    } catch (error) {
+      console.error('Error retrieving data:', error);
+      return res.status(500).json({ error: 'Failed to retrieve data' });
+    }
   }
 
   if (req.method === 'POST') {
-    // Store data for a restaurant
-    const { data } = req.body;
-    restaurantData[restaurantId] = data;
-    return res.status(200).json({ success: true });
+    try {
+      // Store data for a restaurant
+      const { data } = req.body;
+      restaurantData[restaurantId] = data;
+      console.log(`POST data for restaurant ${restaurantId}:`, 'saved successfully');
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Error saving data:', error);
+      return res.status(500).json({ error: 'Failed to save data' });
+    }
   }
 
   return res.status(405).json({ error: 'Method not allowed' });

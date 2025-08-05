@@ -411,11 +411,17 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
         const restaurantId = getRestaurantId();
         if (restaurantId !== 'default') {
           try {
-            await fetch(`/api/restaurant-data?restaurantId=${restaurantId}`, {
+            console.log('Saving data for restaurant:', restaurantId, 'Data:', state);
+            const response = await fetch(`/api/restaurant-data?restaurantId=${restaurantId}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ data: state }),
             });
+            if (response.ok) {
+              console.log('Data saved successfully for restaurant:', restaurantId);
+            } else {
+              console.error('Failed to save data for restaurant:', restaurantId);
+            }
           } catch (error) {
             console.error('Error saving restaurant data:', error);
           }
