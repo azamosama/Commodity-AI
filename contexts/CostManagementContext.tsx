@@ -40,6 +40,7 @@ const initialState: CostManagementState = {
 const CostManagementContext = createContext<{
   state: CostManagementState;
   dispatch: React.Dispatch<CostManagementAction>;
+  isLoading: boolean;
 } | undefined>(undefined);
 
 const EditingContext = createContext<{ isEditing: boolean; setIsEditing: (v: boolean) => void }>({ isEditing: false, setIsEditing: () => {} });
@@ -369,34 +370,60 @@ const getLocalStorageKey = (restaurantId: string) => `costManagementState_${rest
 
 export function CostManagementProvider({ children }: { children: ReactNode }) {
   const getInitialState = () => {
-    if (typeof window !== 'undefined') {
-      const restaurantId = getRestaurantId();
-      const storageKey = getLocalStorageKey(restaurantId);
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        try {
-          return JSON.parse(stored);
-        } catch {
-          return initialState;
-        }
-      }
-    }
+    // For now, return initialState and load data asynchronously
     return initialState;
   };
 
   const [state, dispatch] = useReducer(costManagementReducer, initialState, getInitialState);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const isEditingRef = useRef(isEditing);
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
 
-  // Persist to localStorage on every state change
+  // Load data from API on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const restaurantId = getRestaurantId();
-      const storageKey = getLocalStorageKey(restaurantId);
-      localStorage.setItem(storageKey, JSON.stringify(state));
-    }
-  }, [state]);
+    const loadData = async () => {
+      if (typeof window !== 'undefined') {
+        const restaurantId = getRestaurantId();
+        if (restaurantId !== 'default') {
+          try {
+            const response = await fetch(`/api/restaurant-data?restaurantId=${restaurantId}`);
+            if (response.ok) {
+              const result = await response.json();
+              if (result.data) {
+                dispatch({ type: 'SYNC_STATE', payload: result.data });
+              }
+            }
+          } catch (error) {
+            console.error('Error loading restaurant data:', error);
+          }
+        }
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Persist to API on every state change
+  useEffect(() => {
+    const saveData = async () => {
+      if (typeof window !== 'undefined' && !isLoading) {
+        const restaurantId = getRestaurantId();
+        if (restaurantId !== 'default') {
+          try {
+            await fetch(`/api/restaurant-data?restaurantId=${restaurantId}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ data: state }),
+            });
+          } catch (error) {
+            console.error('Error saving restaurant data:', error);
+          }
+        }
+      }
+    };
+    saveData();
+  }, [state, isLoading]);
 
   // Listen for storage events to sync across tabs (seamless, with warning if editing)
   useEffect(() => {
@@ -465,7 +492,7 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <CostManagementContext.Provider value={{ state, dispatch }}>
+    <CostManagementContext.Provider value={{ state, dispatch, isLoading }}>
       <EditingContext.Provider value={{ isEditing, setIsEditing }}>
         {children}
       </EditingContext.Provider>

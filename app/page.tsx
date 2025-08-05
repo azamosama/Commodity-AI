@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
 import { TrendingDown, TrendingUp, AlertTriangle, DollarSign, Package, Users, Clock, Calendar } from "lucide-react"
 import { useRestaurant } from "@/contexts/restaurant-context"
-import { CostManagementProvider } from '@/contexts/CostManagementContext';
+import { CostManagementProvider, useCostManagement } from '@/contexts/CostManagementContext';
 import { ProductEntryForm } from '@/components/ProductEntryForm';
 import { RecipeCostCalculator } from '@/components/RecipeCostCalculator';
 import { ExpenseTracker } from '@/components/ExpenseTracker';
@@ -174,6 +174,7 @@ function RestaurantLinks() {
 
 export default function Dashboard() {
   const { restaurant, commodities, suppliers, alerts } = useRestaurant()
+  const { isLoading } = useCostManagement()
 
   const priceChangeData = commodities.map((commodity) => ({
     name: commodity.name,
@@ -203,7 +204,15 @@ export default function Dashboard() {
         <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="py-6">
             <RestaurantLinks />
-            <div className="grid grid-cols-1 gap-6">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading restaurant data...</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-6">
               <section>
                 <h2 className="text-xl font-semibold mb-4">Product Management</h2>
                 <ProductEntryForm />
@@ -234,6 +243,7 @@ export default function Dashboard() {
                 <CostSavingRecommendations />
               </section>
             </div>
+            )}
           </div>
         </main>
                 </div>
