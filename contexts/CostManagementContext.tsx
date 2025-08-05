@@ -380,22 +380,46 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
   const isEditingRef = useRef(isEditing);
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
 
-  // Load data from API on mount
+  // Load data from API and localStorage on mount
   useEffect(() => {
     const loadData = async () => {
       if (typeof window !== 'undefined') {
         const restaurantId = getRestaurantId();
         if (restaurantId !== 'default') {
+          let dataLoaded = false;
+          
           try {
+            // Try to load from API first
+            console.log('Loading data from API for restaurant:', restaurantId);
             const response = await fetch(`/api/restaurant-data?restaurantId=${restaurantId}`);
             if (response.ok) {
               const result = await response.json();
               if (result.data) {
                 dispatch({ type: 'SYNC_STATE', payload: result.data });
+                dataLoaded = true;
+                console.log('Data loaded successfully from API for restaurant:', restaurantId);
               }
             }
           } catch (error) {
-            console.error('Error loading restaurant data:', error);
+            console.error('Error loading restaurant data from API:', error);
+          }
+          
+          // If API failed, try localStorage as fallback
+          if (!dataLoaded) {
+            try {
+              console.log('Trying localStorage fallback for restaurant:', restaurantId);
+              const storageKey = getLocalStorageKey(restaurantId);
+              const stored = localStorage.getItem(storageKey);
+              if (stored) {
+                const parsedData = JSON.parse(stored);
+                dispatch({ type: 'SYNC_STATE', payload: parsedData });
+                console.log('Data loaded successfully from localStorage for restaurant:', restaurantId);
+              } else {
+                console.log('No data found in localStorage for restaurant:', restaurantId);
+              }
+            } catch (error) {
+              console.error('Error loading restaurant data from localStorage:', error);
+            }
           }
         }
         setIsLoading(false);
@@ -404,7 +428,7 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
     loadData();
   }, []);
 
-  // Persist to API on every state change
+  // Persist to API and localStorage on every state change
   useEffect(() => {
     const saveData = async () => {
       if (typeof window !== 'undefined' && !isLoading) {
@@ -412,18 +436,31 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
         if (restaurantId !== 'default') {
           try {
             console.log('Saving data for restaurant:', restaurantId, 'Data:', state);
+            
+            // Save to API
             const response = await fetch(`/api/restaurant-data?restaurantId=${restaurantId}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ data: state }),
             });
+            
             if (response.ok) {
-              console.log('Data saved successfully for restaurant:', restaurantId);
+              console.log('Data saved successfully to API for restaurant:', restaurantId);
             } else {
-              console.error('Failed to save data for restaurant:', restaurantId);
+              console.error('Failed to save data to API for restaurant:', restaurantId);
             }
+            
+            // Also save to localStorage as backup
+            const storageKey = getLocalStorageKey(restaurantId);
+            localStorage.setItem(storageKey, JSON.stringify(state));
+            console.log('Data also saved to localStorage for restaurant:', restaurantId);
+            
           } catch (error) {
             console.error('Error saving restaurant data:', error);
+            // Fallback to localStorage only
+            const storageKey = getLocalStorageKey(restaurantId);
+            localStorage.setItem(storageKey, JSON.stringify(state));
+            console.log('Fallback: Data saved to localStorage only for restaurant:', restaurantId);
           }
         }
       }

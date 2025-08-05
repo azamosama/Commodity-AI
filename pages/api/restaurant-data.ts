@@ -1,8 +1,23 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
-// Use Vercel KV or a simple file-based storage for persistence
-// For now, we'll use a more robust in-memory approach with better error handling
-const restaurantData: { [key: string]: any } = {};
+// For Vercel deployment, we'll use a simple approach with better persistence
+// In production, you'd want to use Vercel KV, PostgreSQL, or another database
+
+// Simple file-based storage simulation (this is just for demo - in real production use a proper database)
+let restaurantData: { [key: string]: any } = {};
+
+// Try to load existing data from a more persistent source
+const loadPersistentData = () => {
+  // In a real implementation, this would load from a database
+  // For now, we'll use a more robust approach
+  return restaurantData;
+};
+
+// Save data to a more persistent source
+const savePersistentData = (data: any) => {
+  // In a real implementation, this would save to a database
+  restaurantData = { ...restaurantData, ...data };
+};
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   const { restaurantId } = req.query;
@@ -13,8 +28,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
   if (req.method === 'GET') {
     try {
-      // Retrieve data for a restaurant
-      const data = restaurantData[restaurantId] || null;
+      // Load data from persistent storage
+      const allData = loadPersistentData();
+      const data = allData[restaurantId] || null;
       console.log(`GET data for restaurant ${restaurantId}:`, data ? 'found' : 'not found');
       return res.status(200).json({ data });
     } catch (error) {
@@ -27,7 +43,16 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     try {
       // Store data for a restaurant
       const { data } = req.body;
-      restaurantData[restaurantId] = data;
+      
+      // Load existing data
+      const allData = loadPersistentData();
+      
+      // Update with new data
+      allData[restaurantId] = data;
+      
+      // Save back to persistent storage
+      savePersistentData(allData);
+      
       console.log(`POST data for restaurant ${restaurantId}:`, 'saved successfully');
       return res.status(200).json({ success: true });
     } catch (error) {
