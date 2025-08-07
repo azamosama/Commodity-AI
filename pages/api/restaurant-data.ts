@@ -5,6 +5,16 @@ import path from 'path';
 // Try to import Vercel KV (available in production)
 let kv: any = null;
 let useKV = false;
+
+// Debug environment variables
+console.log('Environment check:', {
+  KV_REST_API_URL: !!process.env.KV_REST_API_URL,
+  KV_REST_API_TOKEN: !!process.env.KV_REST_API_TOKEN,
+  KV_URL: !!process.env.KV_URL,
+  REDIS_URL: !!process.env.REDIS_URL,
+  NODE_ENV: process.env.NODE_ENV
+});
+
 try {
   kv = require('@vercel/kv').kv;
   // Check for KV environment variables (Vercel sets these automatically)
@@ -17,9 +27,10 @@ try {
     console.log('Using Vercel KV for data storage (alternative setup)');
   } else {
     console.log('Vercel KV environment variables not found, using file-based storage');
+    console.log('Available env vars:', Object.keys(process.env).filter(key => key.includes('KV') || key.includes('REDIS')));
   }
 } catch (error) {
-  console.log('Vercel KV not available, using file-based storage');
+  console.log('Vercel KV not available, using file-based storage', error.message);
 }
 
 // For development, we'll use file-based storage as fallback
