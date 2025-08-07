@@ -7,10 +7,14 @@ let kv: any = null;
 let useKV = false;
 try {
   kv = require('@vercel/kv').kv;
-  // Only use KV if environment variables are available
+  // Check for KV environment variables (Vercel sets these automatically)
   if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     useKV = true;
     console.log('Using Vercel KV for data storage');
+  } else if (process.env.KV_URL) {
+    // Alternative KV setup
+    useKV = true;
+    console.log('Using Vercel KV for data storage (alternative setup)');
   } else {
     console.log('Vercel KV environment variables not found, using file-based storage');
   }
@@ -35,7 +39,16 @@ const loadPersistentData = async () => {
     try {
       // Use Vercel KV in production
       const allData: { [key: string]: any } = {};
-      const keys = await kv.keys('restaurant:*');
+      
+      // Try to get all restaurant keys
+      let keys: string[] = [];
+      try {
+        keys = await kv.keys('restaurant:*');
+      } catch (keysError) {
+        console.log('Keys command not available, using direct key approach');
+        // If keys() is not available, we'll handle it differently
+        return {};
+      }
       
       for (const key of keys) {
         const restaurantId = key.replace('restaurant:', '');
@@ -100,7 +113,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     try {
-      // Load data from persistent storage
+      if (useKV && kv) {
+        // Direct KV lookup for specific restaurant
+        try {
+          const data = await kv.get(`restaurant:${restaurantId}`);
+          console.log(`GET data for restaurant ${restaurantId}:`, data ? 'found' : 'not found');
+          return res.status(200).json({ data });
+        } catch (kvError) {
+          console.error('KV get error:', kvError);
+          // Fall through to file-based approach
+        }
+      }
+      
+      // Fallback to file-based storage or if KV failed
       const allData = await loadPersistentData();
       const data = allData[restaurantId] || null;
       console.log(`GET data for restaurant ${restaurantId}:`, data ? 'found' : 'not found');
@@ -116,16 +141,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Store data for a restaurant
       const { data } = req.body;
       
-      // Load existing data
+      if (useKV && kv) {
+        // Direct KV save for specific restaurant
+        try {
+          await kv.set(`restaurant:${restaurantId}`, data);
+          console.log(`POST data for restaurant ${restaurantId}:`, 'saved successfully to KV');
+          return res.status(200).json({ success: true });
+        } catch (kvError) {
+          console.error('KV set error:', kvError);
+          // Fall through to file-based approach
+        }
+      }
+      
+      // Fallback to file-based storage or if KV failed
       const allData = await loadPersistentData();
-      
-      // Update with new data
       allData[restaurantId] = data;
-      
-      // Save back to persistent storage
       await savePersistentData(allData);
       
-      console.log(`POST data for restaurant ${restaurantId}:`, 'saved successfully');
+      console.log(`POST data for restaurant ${restaurantId}:`, 'saved successfully to file');
       return res.status(200).json({ success: true });
     } catch (error) {
       console.error('Error saving data:', error);
