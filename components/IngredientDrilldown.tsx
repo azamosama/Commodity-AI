@@ -20,6 +20,15 @@ export default function IngredientDrilldown() {
 
   const selectedRecipe = state.recipes.find(r => r.id === selectedRecipeId);
 
+  // DEBUG: Log detailed state information
+  console.log('[IngredientDrilldown] Debug Info:', {
+    recipesWithSales: recipesWithSales.map(r => ({ id: r.id, name: r.name })),
+    selectedRecipeId,
+    selectedRecipe: selectedRecipe ? { id: selectedRecipe.id, name: selectedRecipe.name } : null,
+    productsCount: state.products.length,
+    products: state.products.map(p => ({ id: p.id, name: p.name, priceHistory: p.priceHistory?.length || 0 }))
+  });
+
   const handleToggle = (productId: string) => {
     setExpanded(prev => ({ ...prev, [productId]: !prev[productId] }));
   };

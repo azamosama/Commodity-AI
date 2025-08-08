@@ -84,6 +84,17 @@ export default function RecipeAnalytics() {
     salesData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
 
+  // DEBUG: Log detailed state information
+  console.log('[RecipeAnalytics] Debug Info:', {
+    recipesWithSales: recipesWithSales.map(r => ({ id: r.id, name: r.name })),
+    selectedRecipeId,
+    selectedRecipe: selectedRecipe ? { id: selectedRecipe.id, name: selectedRecipe.name } : null,
+    salesForSelectedRecipe: selectedRecipe ? state.sales.filter(s => s.recipeId === selectedRecipe.id) : [],
+    allSales: state.sales.map(s => ({ id: s.id, recipeId: s.recipeId, date: s.date, quantity: s.quantity, price: s.price })),
+    costAndSaleDataLength: costAndSaleData.length,
+    salesDataLength: salesData.length
+  });
+
   // DEBUG: Print product priceHistory and all sale dates for verification
   if (selectedRecipe) {
     selectedRecipe.ingredients.forEach(ingredient => {
