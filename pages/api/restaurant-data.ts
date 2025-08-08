@@ -16,7 +16,15 @@ console.log('Environment check:', {
 });
 
 try {
-  kv = require('@vercel/kv').kv;
+  // Try different KV import approaches
+  try {
+    const kvModule = require('@vercel/kv');
+    kv = kvModule.kv || kvModule.default || kvModule;
+    console.log('KV module loaded successfully');
+  } catch (importError) {
+    console.log('Error importing @vercel/kv:', importError.message);
+  }
+
   // Check for KV environment variables (Vercel sets these automatically)
   if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     useKV = true;
@@ -25,6 +33,10 @@ try {
     // Alternative KV setup
     useKV = true;
     console.log('Using Vercel KV for data storage (alternative setup)');
+  } else if (process.env.REDIS_URL) {
+    // Another alternative
+    useKV = true;
+    console.log('Using Vercel KV for data storage (Redis URL setup)');
   } else {
     console.log('Vercel KV environment variables not found, using file-based storage');
     console.log('Available env vars:', Object.keys(process.env).filter(key => key.includes('KV') || key.includes('REDIS')));
@@ -103,7 +115,10 @@ const savePersistentData = async (data: any) => {
       throw error;
     }
   } else {
-    // Fallback to file-based storage for development
+    // Fallback to file-based storage for development only
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('File storage not available in production. KV database required.');
+    }
     try {
       ensureDataDirectory();
       fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(data, null, 2));
