@@ -40,24 +40,51 @@ export default function RecipeAnalytics() {
 
   // Helper to get product cost as of a given date
   function getProductCostOnDate(product: any, date: Date) {
-    if (!product.priceHistory || product.priceHistory.length === 0) {
-      return { cost: product.cost, packageSize: product.packageSize, quantity: product.quantity };
+    const targetTime = date.getTime();
+
+    // Find latest priceHistory entry up to the date
+    const latestPrice = Array.isArray(product.priceHistory) && product.priceHistory.length > 0
+      ? [...product.priceHistory]
+          .filter((e: any) => new Date(e.date).getTime() <= targetTime)
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .pop()
+      : undefined;
+
+    // Find latest restock entry up to the date
+    const latestRestock = Array.isArray(product.restockHistory) && product.restockHistory.length > 0
+      ? [...product.restockHistory]
+          .filter((e: any) => new Date(e.date).getTime() <= targetTime)
+          .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+          .pop()
+      : undefined;
+
+    // Decide which source is more recent
+    const priceTime = latestPrice ? new Date(latestPrice.date).getTime() : -Infinity;
+    const restockTime = latestRestock ? new Date(latestRestock.date).getTime() : -Infinity;
+
+    let chosenCost = product.cost as number;
+    let chosenPackageSize = product.packageSize as number | undefined;
+    let chosenQuantity = product.quantity as number | undefined;
+
+    if (priceTime === -Infinity && restockTime === -Infinity) {
+      // No historical info, fall back to product
+      return { cost: chosenCost, packageSize: chosenPackageSize, quantity: chosenQuantity };
     }
-    // Sort priceHistory by date ascending
-    const sorted = [...product.priceHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    let entry = sorted[0];
-    for (let i = 0; i < sorted.length; i++) {
-      if (new Date(sorted[i].date) <= date) {
-        entry = sorted[i];
-      } else {
-        break;
-      }
+
+    if (priceTime >= restockTime && latestPrice) {
+      chosenCost = latestPrice.price ?? chosenCost;
+      chosenPackageSize = (latestPrice.packageSize && latestPrice.packageSize > 0) ? latestPrice.packageSize : chosenPackageSize;
+      chosenQuantity = (latestPrice.quantity && latestPrice.quantity > 0) ? latestPrice.quantity : chosenQuantity;
+      return { cost: chosenCost, packageSize: chosenPackageSize, quantity: chosenQuantity };
     }
-    return {
-      cost: entry.price,
-      packageSize: entry.packageSize,
-      quantity: entry.quantity
-    };
+
+    if (latestRestock) {
+      // Use restock cost; restock entries typically lack package metadata so fall back to product values
+      chosenCost = latestRestock.cost ?? chosenCost;
+      return { cost: chosenCost, packageSize: chosenPackageSize, quantity: chosenQuantity };
+    }
+
+    return { cost: chosenCost, packageSize: chosenPackageSize, quantity: chosenQuantity };
   }
 
   // Build cost/sale price history for each sale
