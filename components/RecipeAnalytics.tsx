@@ -8,10 +8,17 @@ export default function RecipeAnalytics() {
   const recipesWithSales = state.recipes.filter(recipe => 
     state.sales.some(sale => sale.recipeId === recipe.id)
   );
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(
-    recipesWithSales.length > 0 ? recipesWithSales[0].id : null
-  );
+  
+  // Initialize selected recipe properly
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const selectedRecipe = state.recipes.find(r => r.id === selectedRecipeId);
+
+  // Set selected recipe when recipesWithSales changes
+  useEffect(() => {
+    if (recipesWithSales.length > 0 && !selectedRecipeId) {
+      setSelectedRecipeId(recipesWithSales[0].id);
+    }
+  }, [recipesWithSales, selectedRecipeId]);
 
   // Helper to get product cost as of a given date
   function getProductCostOnDate(product: any, date: Date) {
@@ -92,7 +99,12 @@ export default function RecipeAnalytics() {
     salesForSelectedRecipe: selectedRecipe ? state.sales.filter(s => s.recipeId === selectedRecipe.id) : [],
     allSales: state.sales.map(s => ({ id: s.id, recipeId: s.recipeId, date: s.date, quantity: s.quantity, price: s.price })),
     costAndSaleDataLength: costAndSaleData.length,
-    salesDataLength: salesData.length
+    salesDataLength: salesData.length,
+    // Additional debugging
+    totalRecipes: state.recipes.length,
+    totalSales: state.sales.length,
+    totalProducts: state.products.length,
+    isLoading: state.recipes.length === 0 && state.sales.length === 0
   });
 
   // DEBUG: Print product priceHistory and all sale dates for verification

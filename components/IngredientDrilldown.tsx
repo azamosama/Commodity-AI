@@ -9,9 +9,9 @@ export default function IngredientDrilldown() {
   const recipesWithSales = state.recipes.filter(recipe => 
     state.sales.some(sale => sale.recipeId === recipe.id)
   );
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(
-    recipesWithSales.length > 0 ? recipesWithSales[0].id : null
-  );
+  
+  // Initialize selected recipe properly
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -20,13 +20,24 @@ export default function IngredientDrilldown() {
 
   const selectedRecipe = state.recipes.find(r => r.id === selectedRecipeId);
 
+  // Set selected recipe when recipesWithSales changes
+  useEffect(() => {
+    if (recipesWithSales.length > 0 && !selectedRecipeId) {
+      setSelectedRecipeId(recipesWithSales[0].id);
+    }
+  }, [recipesWithSales, selectedRecipeId]);
+
   // DEBUG: Log detailed state information
   console.log('[IngredientDrilldown] Debug Info:', {
     recipesWithSales: recipesWithSales.map(r => ({ id: r.id, name: r.name })),
     selectedRecipeId,
     selectedRecipe: selectedRecipe ? { id: selectedRecipe.id, name: selectedRecipe.name } : null,
     productsCount: state.products.length,
-    products: state.products.map(p => ({ id: p.id, name: p.name, priceHistory: p.priceHistory?.length || 0 }))
+    products: state.products.map(p => ({ id: p.id, name: p.name, priceHistory: p.priceHistory?.length || 0 })),
+    // Additional debugging
+    totalRecipes: state.recipes.length,
+    totalSales: state.sales.length,
+    isLoading: state.recipes.length === 0 && state.sales.length === 0
   });
 
   const handleToggle = (productId: string) => {
