@@ -4,7 +4,22 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContai
 import { getInventoryTimeline, TimelineEvent } from '@/lib/utils';
 
 export default function IngredientDrilldown() {
-  const { state } = useCostManagement();
+  const { state, isLoading } = useCostManagement();
+  const [hasMounted, setHasMounted] = useState(false);
+  
+  useEffect(() => { setHasMounted(true); }, []);
+  if (!hasMounted) return null;
+
+  // Wait for data to be loaded
+  if (isLoading || (state.recipes.length === 0 && state.sales.length === 0)) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4">Ingredient Drill-Down</h3>
+        <div className="text-gray-500">Loading data...</div>
+      </div>
+    );
+  }
+
   // Get recipes that have sales data
   const recipesWithSales = state.recipes.filter(recipe => 
     state.sales.some(sale => sale.recipeId === recipe.id)
@@ -13,10 +28,6 @@ export default function IngredientDrilldown() {
   // Initialize selected recipe properly
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [hasMounted, setHasMounted] = useState(false);
-
-  useEffect(() => { setHasMounted(true); }, []);
-  if (!hasMounted) return null;
 
   const selectedRecipe = state.recipes.find(r => r.id === selectedRecipeId);
 

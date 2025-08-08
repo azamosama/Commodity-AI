@@ -3,7 +3,22 @@ import { useCostManagement } from '@/contexts/CostManagementContext';
 import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer, Legend, BarChart, Bar } from 'recharts';
 
 export default function RecipeAnalytics() {
-  const { state } = useCostManagement();
+  const { state, isLoading } = useCostManagement();
+  const [hasMounted, setHasMounted] = useState(false);
+  
+  useEffect(() => { setHasMounted(true); }, []);
+  if (!hasMounted) return null;
+
+  // Wait for data to be loaded
+  if (isLoading || (state.recipes.length === 0 && state.sales.length === 0)) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4">Recipe/Menu Item Analytics</h3>
+        <div className="text-gray-500">Loading data...</div>
+      </div>
+    );
+  }
+
   // Get recipes that have sales data
   const recipesWithSales = state.recipes.filter(recipe => 
     state.sales.some(sale => sale.recipeId === recipe.id)
@@ -119,10 +134,6 @@ export default function RecipeAnalytics() {
     const sales = state.sales.filter(sale => sale.recipeId === selectedRecipe.id);
     console.log('[DEBUG] Sale Dates:', sales.map(sale => sale.date));
   }
-
-  const [hasMounted, setHasMounted] = useState(false);
-  useEffect(() => { setHasMounted(true); }, []);
-  if (!hasMounted) return null;
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
