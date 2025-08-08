@@ -5,12 +5,18 @@ import { getInventoryTimeline, TimelineEvent } from '@/lib/utils';
 
 export function InventoryAnalytics() {
   const { state } = useCostManagement();
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(
-    state.products.length > 0 ? state.products[0].id : null
-  );
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
+  
   useEffect(() => { setHasMounted(true); }, []);
   if (!hasMounted) return null;
+
+  // Set initial selected product when data loads
+  useEffect(() => {
+    if (state.products.length > 0 && !selectedProductId) {
+      setSelectedProductId(state.products[0].id);
+    }
+  }, [state.products, selectedProductId]);
 
   const productsWithHistory = state.inventory.filter(item => item.stockHistory && item.stockHistory.length > 0);
   const selectedInventory = productsWithHistory.find(item => item.productId === selectedProductId);
