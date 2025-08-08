@@ -6,6 +6,9 @@ export default function RecipeAnalytics() {
   const { state, isLoading } = useCostManagement();
   const [hasMounted, setHasMounted] = useState(false);
   
+  // Initialize selected recipe properly - move this before any conditional returns
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
+  
   useEffect(() => { setHasMounted(true); }, []);
   if (!hasMounted) return null;
 
@@ -24,8 +27,6 @@ export default function RecipeAnalytics() {
     state.sales.some(sale => sale.recipeId === recipe.id)
   );
   
-  // Initialize selected recipe properly
-  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const selectedRecipe = state.recipes.find(r => r.id === selectedRecipeId);
 
   // Set selected recipe when recipesWithSales changes
