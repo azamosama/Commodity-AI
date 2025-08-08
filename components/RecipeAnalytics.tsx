@@ -6,10 +6,24 @@ export default function RecipeAnalytics() {
   const { state, isLoading } = useCostManagement();
   const [hasMounted, setHasMounted] = useState(false);
   
-  // Initialize selected recipe properly - move this before any conditional returns
+  // Hooks must be declared before any conditional returns
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
-  
+
+  // Compute derived data used by effects regardless of loading state
+  const recipesWithSales = state.recipes.filter(recipe => 
+    state.sales.some(sale => sale.recipeId === recipe.id)
+  );
+
+  // Mount flag
   useEffect(() => { setHasMounted(true); }, []);
+
+  // Initialize selected recipe when data becomes available
+  useEffect(() => {
+    if (recipesWithSales.length > 0 && !selectedRecipeId) {
+      setSelectedRecipeId(recipesWithSales[0].id);
+    }
+  }, [recipesWithSales, selectedRecipeId]);
+
   if (!hasMounted) return null;
 
   // Wait for data to be loaded
@@ -22,19 +36,7 @@ export default function RecipeAnalytics() {
     );
   }
 
-  // Get recipes that have sales data
-  const recipesWithSales = state.recipes.filter(recipe => 
-    state.sales.some(sale => sale.recipeId === recipe.id)
-  );
-  
   const selectedRecipe = state.recipes.find(r => r.id === selectedRecipeId);
-
-  // Set selected recipe when recipesWithSales changes
-  useEffect(() => {
-    if (recipesWithSales.length > 0 && !selectedRecipeId) {
-      setSelectedRecipeId(recipesWithSales[0].id);
-    }
-  }, [recipesWithSales, selectedRecipeId]);
 
   // Helper to get product cost as of a given date
   function getProductCostOnDate(product: any, date: Date) {
@@ -106,22 +108,6 @@ export default function RecipeAnalytics() {
     // Sort by date ascending
     salesData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
-
-  // DEBUG: Log detailed state information
-  console.log('[RecipeAnalytics] Debug Info:', {
-    recipesWithSales: recipesWithSales.map(r => ({ id: r.id, name: r.name })),
-    selectedRecipeId,
-    selectedRecipe: selectedRecipe ? { id: selectedRecipe.id, name: selectedRecipe.name } : null,
-    salesForSelectedRecipe: selectedRecipe ? state.sales.filter(s => s.recipeId === selectedRecipe.id) : [],
-    allSales: state.sales.map(s => ({ id: s.id, recipeId: s.recipeId, date: s.date, quantity: s.quantity, price: s.price })),
-    costAndSaleDataLength: costAndSaleData.length,
-    salesDataLength: salesData.length,
-    // Additional debugging
-    totalRecipes: state.recipes.length,
-    totalSales: state.sales.length,
-    totalProducts: state.products.length,
-    isLoading: state.recipes.length === 0 && state.sales.length === 0
-  });
 
   // DEBUG: Print product priceHistory and all sale dates for verification
   if (selectedRecipe) {

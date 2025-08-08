@@ -7,11 +7,24 @@ export default function IngredientDrilldown() {
   const { state, isLoading } = useCostManagement();
   const [hasMounted, setHasMounted] = useState(false);
   
-  // Initialize selected recipe properly - move this before any conditional returns
+  // Hooks must be declared before any conditional returns
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  
+
+  // Compute derived data regardless of loading state
+  const recipesWithSales = state.recipes.filter(recipe => 
+    state.sales.some(sale => sale.recipeId === recipe.id)
+  );
+
   useEffect(() => { setHasMounted(true); }, []);
+
+  // Initialize selected recipe when data becomes available
+  useEffect(() => {
+    if (recipesWithSales.length > 0 && !selectedRecipeId) {
+      setSelectedRecipeId(recipesWithSales[0].id);
+    }
+  }, [recipesWithSales, selectedRecipeId]);
+
   if (!hasMounted) return null;
 
   // Wait for data to be loaded
@@ -24,19 +37,7 @@ export default function IngredientDrilldown() {
     );
   }
 
-  // Get recipes that have sales data
-  const recipesWithSales = state.recipes.filter(recipe => 
-    state.sales.some(sale => sale.recipeId === recipe.id)
-  );
-  
   const selectedRecipe = state.recipes.find(r => r.id === selectedRecipeId);
-
-  // Set selected recipe when recipesWithSales changes
-  useEffect(() => {
-    if (recipesWithSales.length > 0 && !selectedRecipeId) {
-      setSelectedRecipeId(recipesWithSales[0].id);
-    }
-  }, [recipesWithSales, selectedRecipeId]);
 
   // DEBUG: Log detailed state information
   console.log('[IngredientDrilldown] Debug Info:', {

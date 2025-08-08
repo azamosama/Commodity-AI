@@ -8,15 +8,25 @@ export function InventoryAnalytics() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
   
+  // Mount flag
   useEffect(() => { setHasMounted(true); }, []);
-  if (!hasMounted) return null;
 
-  // Set initial selected product when data loads
+  // Initialize selected product once products are available
   useEffect(() => {
-    if (state.products.length > 0 && !selectedProductId) {
+    if (!selectedProductId && state.products.length > 0) {
       setSelectedProductId(state.products[0].id);
     }
   }, [state.products, selectedProductId]);
+
+  if (!hasMounted) return null;
+  if (state.products.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold mb-4">Inventory Levels (Sales & Restocks)</h3>
+        <div className="text-gray-500">Loading data...</div>
+      </div>
+    );
+  }
 
   const productsWithHistory = state.inventory.filter(item => item.stockHistory && item.stockHistory.length > 0);
   const selectedInventory = productsWithHistory.find(item => item.productId === selectedProductId);
@@ -56,7 +66,7 @@ export function InventoryAnalytics() {
       let timelineIdx = 0;
       product.restockHistory.forEach(restock => {
         // Find the next matching manual restock event in timeline (in order)
-        let matchedEvent = null;
+        let matchedEvent = null as any;
         while (timelineIdx < timelineManualRestocks.length) {
           const event = timelineManualRestocks[timelineIdx];
           timelineIdx++;
@@ -108,67 +118,26 @@ export function InventoryAnalytics() {
             value={selectedProductId || ''}
             onChange={e => setSelectedProductId(e.target.value)}
           >
-            {productOptions.map(product => (
-              <option key={product.id} value={product.id}>
-                {product.name}
+            {productOptions.map(p => (
+              <option key={p.id} value={p.id}>
+                {p.name}
               </option>
             ))}
           </select>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer>
-              <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" domain={['dataMin', 'dataMax']} type="category" />
-                <YAxis allowDecimals={false} />
-                <Tooltip formatter={(value, name, props) => {
-                  const idx = props && props.payload && props.payload.index !== undefined ? props.payload.index : null;
-                  const type = props && props.payload && props.payload.type;
-                  const source = props && props.payload && props.payload.source;
-                  if (idx === 0 && type === 'initial') {
-                    return [`${value} (initial stock)`, 'Stock'];
-                  } else if (type === 'sale') {
-                    return [`${value} (after sale${props.payload.recipe ? ' of ' + props.payload.recipe : ''})`, 'Stock'];
-                  } else if (type === 'restock') {
-                    if (source === 'reset') {
-                      return [`${value} (after quantity reset)`, 'Stock'];
-                    } else {
-                      return [`${value} (after manual restock)`, 'Stock'];
-                    }
-                  }
-                  return [`${value}`, 'Stock'];
-                }} />
-                <Line type="monotone" dataKey="stock" stroke="#8884d8" strokeWidth={2} dot={true} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
 
-          {/* Restock Log */}
-          <div className="mt-8">
-            <h4 className="text-md font-semibold mb-2">Restock Log</h4>
-            {restockLog.length === 0 ? (
-              <div className="text-gray-500">No restocks recorded for this product.</div>
-            ) : (
-              <table className="min-w-full divide-y divide-gray-200 bg-white rounded shadow">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount Restocked</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock After Restock</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {restockLog.map((entry, idx) => (
-                    <tr key={idx}>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{entry.date}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{entry.amount}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{Number.isFinite(entry.stock) ? entry.stock : "N/A"}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{entry.source === 'reset' ? 'Quantity Change' : 'Manual'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          <div className="mb-8">
+            <h4 className="font-medium mb-2">Inventory Level Over Time</h4>
+            <div style={{ width: '100%', height: 250 }}>
+              <ResponsiveContainer>
+                <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" domain={['dataMin', 'dataMax']} type="category" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="stock" stroke="#3b82f6" strokeWidth={2} dot={true} name="Stock" />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </>
       )}
