@@ -5,8 +5,12 @@ import { getInventoryTimeline, TimelineEvent } from '@/lib/utils';
 
 export default function IngredientDrilldown() {
   const { state } = useCostManagement();
+  // Get recipes that have sales data
+  const recipesWithSales = state.recipes.filter(recipe => 
+    state.sales.some(sale => sale.recipeId === recipe.id)
+  );
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(
-    state.recipes.length > 0 ? state.recipes[0].id : null
+    recipesWithSales.length > 0 ? recipesWithSales[0].id : null
   );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [hasMounted, setHasMounted] = useState(false);
@@ -23,7 +27,7 @@ export default function IngredientDrilldown() {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold mb-4">Ingredient Drill-Down</h3>
-      {state.recipes.length === 0 ? (
+      {recipesWithSales.length === 0 ? (
         <div className="text-gray-500">No recipes available yet.</div>
       ) : (
         <>
@@ -33,7 +37,7 @@ export default function IngredientDrilldown() {
             value={selectedRecipeId || ''}
             onChange={e => setSelectedRecipeId(e.target.value)}
           >
-            {state.recipes.map(recipe => (
+            {recipesWithSales.map(recipe => (
               <option key={recipe.id} value={recipe.id}>
                 {recipe.name}
               </option>

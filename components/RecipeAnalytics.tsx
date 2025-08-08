@@ -4,9 +4,12 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContai
 
 export default function RecipeAnalytics() {
   const { state } = useCostManagement();
-  const recipesWithHistory = state.recipes;
+  // Get recipes that have sales data
+  const recipesWithSales = state.recipes.filter(recipe => 
+    state.sales.some(sale => sale.recipeId === recipe.id)
+  );
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(
-    recipesWithHistory.length > 0 ? recipesWithHistory[0].id : null
+    recipesWithSales.length > 0 ? recipesWithSales[0].id : null
   );
   const selectedRecipe = state.recipes.find(r => r.id === selectedRecipeId);
 
@@ -101,7 +104,7 @@ export default function RecipeAnalytics() {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold mb-4">Recipe/Menu Item Analytics</h3>
-      {recipesWithHistory.length === 0 ? (
+      {recipesWithSales.length === 0 ? (
         <div className="text-gray-500">No recipe analytics available yet.</div>
       ) : (
         <>
@@ -111,7 +114,7 @@ export default function RecipeAnalytics() {
             value={selectedRecipeId || ''}
             onChange={e => setSelectedRecipeId(e.target.value)}
           >
-            {recipesWithHistory.map(recipe => (
+            {recipesWithSales.map(recipe => (
               <option key={recipe.id} value={recipe.id}>
                 {recipe.name}
               </option>
