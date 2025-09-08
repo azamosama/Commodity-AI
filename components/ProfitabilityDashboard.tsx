@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useCostManagement } from '@/contexts/CostManagementContext';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit, Trash } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export function ProfitabilityDashboard() {
-  const { state } = useCostManagement();
+  const { state, dispatch } = useCostManagement();
   const [expandedRecipeId, setExpandedRecipeId] = useState<string | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
   const [profitPeriod, setProfitPeriod] = useState<'year' | 'month' | 'week' | 'day'>('month');
@@ -15,17 +16,28 @@ export function ProfitabilityDashboard() {
     setExpandedRecipeId(expandedRecipeId === recipeId ? null : recipeId);
   };
 
+  const handleEditRecipe = (recipe: any) => {
+    // Navigate to recipes page with edit mode
+    window.location.href = `/recipes?edit=${recipe.id}`;
+  };
+
+  const handleDeleteRecipe = (recipeId: string) => {
+    if (confirm('Are you sure you want to delete this recipe? This action cannot be undone.')) {
+      dispatch({ type: 'DELETE_RECIPE', payload: recipeId });
+    }
+  };
+
   // Calculate total expenses
   const totalExpenses = state.expenses.reduce((sum, e) => sum + e.amount, 0);
 
   // Calculate total revenue
-  const totalRevenue = state.sales.reduce((sum, sale) => sum + (sale.price * sale.quantity), 0);
+  const totalRevenue = state.sales.reduce((sum, sale) => sum + (sale.salePrice * sale.quantity), 0);
 
   // Calculate profit margin for each recipe
   const recipeMargins = state.recipes.map((recipe) => {
     // Find all sales for this recipe
-    const sales = state.sales.filter((s) => s.recipeId === recipe.id);
-    const revenue = sales.reduce((sum, s) => sum + (s.price * s.quantity), 0);
+    const sales = state.sales.filter((s) => s.recipeName === recipe.name);
+    const revenue = sales.reduce((sum, s) => sum + (s.salePrice * s.quantity), 0);
     // Calculate cost per serving for each sale using historical prices
     let totalCost = 0;
     sales.forEach(sale => {
@@ -34,11 +46,11 @@ export function ProfitabilityDashboard() {
         const product = state.products.find((p) => p.id === ingredient.productId);
         if (!product) return sum;
         const productCost = getProductCostOnDate(product, saleDate);
-        const totalUnits = product.quantity * (product.packageSize || 1);
-        const unitCost = totalUnits > 0 ? productCost / totalUnits : 0;
-        return sum + unitCost * ingredient.quantity;
+        const totalUnits = (Number(product.quantity) || 0) * (Number(product.packageSize) || 1);
+        const unitCost = totalUnits > 0 ? (Number(productCost) || 0) / totalUnits : 0;
+        return sum + unitCost * (Number(ingredient.quantity) || 0);
       }, 0);
-      totalCost += costPerServing * sale.quantity;
+      totalCost += costPerServing * (Number(sale.quantity) || 0);
     });
     const margin = revenue - totalCost;
     return {
@@ -110,7 +122,7 @@ export function ProfitabilityDashboard() {
   let cogsYear = 0, cogsMonth = 0, cogsWeek = 0;
   const cogsByDay: Record<string, number> = {};
   salesWithDates.forEach(sale => {
-    const recipe = state.recipes.find(r => r.id === sale.recipeId);
+    const recipe = state.recipes.find(r => r.name === sale.recipeName);
     if (!recipe) return;
     const saleDate = sale.date;
     // Calculate cost per serving for this recipe using historical prices
@@ -118,12 +130,12 @@ export function ProfitabilityDashboard() {
       const product = state.products.find(p => p.id === ingredient.productId);
       if (!product) return sum;
       const productCost = getProductCostOnDate(product, saleDate);
-      const totalUnits = product.quantity * (product.packageSize || 1);
-      const unitCost = totalUnits > 0 ? productCost / totalUnits : 0;
-      return sum + unitCost * ingredient.quantity;
+      const totalUnits = (Number(product.quantity) || 0) * (Number(product.packageSize) || 1);
+      const unitCost = totalUnits > 0 ? (Number(productCost) || 0) / totalUnits : 0;
+      return sum + unitCost * (Number(ingredient.quantity) || 0);
     }, 0);
     // Total COGS for this sale
-    const totalIngredientCost = costPerServing * sale.quantity;
+    const totalIngredientCost = costPerServing * (Number(sale.quantity) || 0);
     // Group by day (YYYY-MM-DD)
     const dayKey = sale.date.toISOString().split('T')[0];
     cogsByDay[dayKey] = (cogsByDay[dayKey] || 0) + totalIngredientCost;
@@ -153,14 +165,14 @@ export function ProfitabilityDashboard() {
   };
   const cogsByWeek: Record<string, number> = {};
   salesWithDates.forEach(sale => {
-    const recipe = state.recipes.find(r => r.id === sale.recipeId);
+    const recipe = state.recipes.find(r => r.name === sale.recipeName);
     if (!recipe) return;
     let totalIngredientCost = 0;
     recipe.ingredients.forEach(ingredient => {
       const product = state.products.find(p => p.id === ingredient.productId);
       if (!product) return;
       let costPerUnit = getCostPerBaseUnit(product);
-      totalIngredientCost += ingredient.quantity * costPerUnit * sale.quantity;
+      totalIngredientCost += (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0) * (Number(sale.quantity) || 0);
     });
     const weekKey = getWeekKey(sale.date);
     cogsByWeek[weekKey] = (cogsByWeek[weekKey] || 0) + totalIngredientCost;
@@ -210,7 +222,7 @@ export function ProfitabilityDashboard() {
   const revenueByYear: Record<string, number> = {};
 
   salesWithDates.forEach(sale => {
-    const saleRevenue = sale.price * sale.quantity;
+    const saleRevenue = sale.salePrice * sale.quantity;
     const dayKey = getDayKey(sale.date);
     const weekKey = getWeekKey(sale.date);
     const monthKey = getMonthKey(sale.date);
@@ -258,14 +270,14 @@ export function ProfitabilityDashboard() {
   const cogsByMonth: Record<string, number> = {};
   const cogsByYear: Record<string, number> = {};
   salesWithDates.forEach(sale => {
-    const recipe = state.recipes.find(r => r.id === sale.recipeId);
+    const recipe = state.recipes.find(r => r.name === sale.recipeName);
     if (!recipe) return;
     let totalIngredientCost = 0;
     recipe.ingredients.forEach(ingredient => {
       const product = state.products.find(p => p.id === ingredient.productId);
       if (!product) return;
       let costPerUnit = getCostPerBaseUnit(product);
-      totalIngredientCost += ingredient.quantity * costPerUnit * sale.quantity;
+      totalIngredientCost += (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0) * (Number(sale.quantity) || 0);
     });
     // Group by week, month, year
     const weekKey = getWeekKey(sale.date);
@@ -281,10 +293,10 @@ export function ProfitabilityDashboard() {
   // Helper function for cost per base unit
   function getCostPerBaseUnit(product: import('@/lib/types').Product) {
     if ((product.unit === 'count' || product.unit === 'pieces' || product.unit === 'units') && product.unitsPerPackage) {
-      const totalUnits = product.quantity * product.unitsPerPackage;
+      const totalUnits = (Number(product.quantity) || 0) * (Number(product.unitsPerPackage) || 0);
       return totalUnits > 0 ? product.cost / totalUnits : 0;
     } else {
-      const totalUnits = product.quantity * (product.packageSize || 1);
+      const totalUnits = (Number(product.quantity) || 0) * (Number(product.packageSize) || 1);
       return totalUnits > 0 ? product.cost / totalUnits : 0;
     }
   }
@@ -435,6 +447,7 @@ export function ProfitabilityDashboard() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margin</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margin %</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -454,10 +467,18 @@ export function ProfitabilityDashboard() {
                         {expandedRecipeId === recipe.id ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                       </button>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <Button variant="ghost" size="sm" onClick={() => handleEditRecipe(recipe)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => handleDeleteRecipe(recipe.id)}>
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </td>
                   </tr>
                   {expandedRecipeId === recipe.id && (
                     <tr>
-                      <td colSpan={6} className="p-4 bg-gray-50">
+                      <td colSpan={7} className="p-4 bg-gray-50">
                         <h4 className="font-semibold mb-2">Ingredient Breakdown for {recipe.name}</h4>
                         {/* Per Serving Breakdown */}
                         <div className="mb-2">
@@ -468,7 +489,7 @@ export function ProfitabilityDashboard() {
                               if (!product) return null;
                               // Use current price for per-serving and per-batch breakdowns (not historical)
                               let costPerUnit = getCostPerBaseUnit(product);
-                              const ingredientCost = ingredient.quantity * costPerUnit;
+                              const ingredientCost = (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0);
                               return (
                                 <li key={ingredient.productId}>
                                   {product.name}: {ingredient.quantity} {product.unit} @ ${costPerUnit.toFixed(3)}/{product.unit} = ${ingredientCost.toFixed(2)}
@@ -481,7 +502,7 @@ export function ProfitabilityDashboard() {
                               const product = state.products.find(p => p.id === ingredient.productId);
                               if (!product) return sum;
                               let costPerUnit = getCostPerBaseUnit(product);
-                              return sum + ingredient.quantity * costPerUnit;
+                              return sum + (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0);
                             }, 0).toFixed(2)}
                           </div>
                         </div>
@@ -493,10 +514,10 @@ export function ProfitabilityDashboard() {
                               const product = state.products.find(p => p.id === ingredient.productId);
                               if (!product) return null;
                               let costPerUnit = getCostPerBaseUnit(product);
-                              const ingredientCost = ingredient.quantity * costPerUnit * recipe.servings;
+                              const ingredientCost = (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0) * (Number(recipe.servings) || 0);
                               return (
                                 <li key={ingredient.productId}>
-                                  {product.name}: {ingredient.quantity * recipe.servings} {product.unit} @ ${costPerUnit.toFixed(3)}/{product.unit} = ${ingredientCost.toFixed(2)}
+                                  {product.name}: {(Number(ingredient.quantity) || 0) * (Number(recipe.servings) || 0)} {product.unit} @ ${(Number(costPerUnit) || 0).toFixed(3)}/{product.unit} = ${ingredientCost.toFixed(2)}
                                 </li>
                               );
                             })}
@@ -506,31 +527,31 @@ export function ProfitabilityDashboard() {
                               const product = state.products.find(p => p.id === ingredient.productId);
                               if (!product) return sum;
                               let costPerUnit = getCostPerBaseUnit(product);
-                              return sum + ingredient.quantity * costPerUnit * recipe.servings;
+                              return sum + (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0) * (Number(recipe.servings) || 0);
                             }, 0).toFixed(2)}
                           </div>
                         </div>
                         {/* For Number Sold Breakdown */}
                         <div>
-                          <div className="font-semibold">For Number Sold ({state.sales.filter(s => s.recipeId === recipe.id).reduce((sum, s) => sum + s.quantity, 0)} sold):</div>
+                          <div className="font-semibold">For Number Sold ({state.sales.filter(s => s.recipeName === recipe.name).reduce((sum, s) => sum + (Number(s.quantity) || 0), 0)} sold):</div>
                           <ul className="list-disc list-inside">
                             {recipe.ingredients.map(ingredient => {
                               const product = state.products.find(p => p.id === ingredient.productId);
                               if (!product) return null;
                               // For number sold, use historical price for each sale
-                              const numSold = state.sales.filter(s => s.recipeId === recipe.id).reduce((sum, s) => sum + s.quantity, 0);
+                              const numSold = state.sales.filter(s => s.recipeName === recipe.name).reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
                               // Use average historical cost per unit for all sales
                               let totalIngredientCost = 0;
-                              state.sales.filter(s => s.recipeId === recipe.id).forEach(sale => {
+                              state.sales.filter(s => s.recipeName === recipe.name).forEach(sale => {
                                 const saleDate = new Date(sale.date);
                                 const productCost = getProductCostOnDate(product, saleDate);
-                                const totalUnits = product.quantity * (product.packageSize || 1);
+                                const totalUnits = (Number(product.quantity) || 0) * (Number(product.packageSize) || 1);
                                 const unitCost = totalUnits > 0 ? productCost / totalUnits : 0;
-                                totalIngredientCost += unitCost * ingredient.quantity * sale.quantity;
+                                totalIngredientCost += (Number(unitCost) || 0) * (Number(ingredient.quantity) || 0) * (Number(sale.quantity) || 0);
                               });
                               return (
                                 <li key={ingredient.productId}>
-                                  {product.name}: {ingredient.quantity * numSold} {product.unit} (historical avg) = ${totalIngredientCost.toFixed(2)}
+                                  {product.name}: {(Number(ingredient.quantity) || 0) * (Number(numSold) || 0)} {product.unit} (historical avg) = ${totalIngredientCost.toFixed(2)}
                                 </li>
                               );
                             })}
@@ -540,12 +561,12 @@ export function ProfitabilityDashboard() {
                               const product = state.products.find(p => p.id === ingredient.productId);
                               if (!product) return sum;
                               let totalIngredientCost = 0;
-                              state.sales.filter(s => s.recipeId === recipe.id).forEach(sale => {
+                              state.sales.filter(s => s.recipeName === recipe.name).forEach(sale => {
                                 const saleDate = new Date(sale.date);
                                 const productCost = getProductCostOnDate(product, saleDate);
-                                const totalUnits = product.quantity * (product.packageSize || 1);
+                                const totalUnits = (Number(product.quantity) || 0) * (Number(product.packageSize) || 1);
                                 const unitCost = totalUnits > 0 ? productCost / totalUnits : 0;
-                                totalIngredientCost += unitCost * ingredient.quantity * sale.quantity;
+                                totalIngredientCost += (Number(unitCost) || 0) * (Number(ingredient.quantity) || 0) * (Number(sale.quantity) || 0);
                               });
                               return sum + totalIngredientCost;
                             }, 0).toFixed(2)}

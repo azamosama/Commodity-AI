@@ -11,7 +11,7 @@ export default function RecipeAnalytics() {
 
   // Compute derived data used by effects regardless of loading state
   const recipesWithSales = state.recipes.filter(recipe => 
-    state.sales.some(sale => sale.recipeId === recipe.id)
+    state.sales.some(sale => sale.recipeName === recipe.name)
   );
 
   // Mount flag
@@ -90,7 +90,7 @@ export default function RecipeAnalytics() {
   // Build cost/sale price history for each sale
   let costAndSaleData: { date: string; cost: number; salePrice: number }[] = [];
   if (selectedRecipe) {
-    const sales = state.sales.filter(sale => sale.recipeId === selectedRecipe.id);
+    const sales = state.sales.filter(sale => sale.recipeName === selectedRecipe.name);
     costAndSaleData = sales.map(sale => {
       const saleDate = new Date(sale.date);
       // Calculate cost per serving as of sale date (do NOT multiply by sale.quantity)
@@ -116,7 +116,7 @@ export default function RecipeAnalytics() {
       return {
         date: saleDate.toISOString().slice(0, 10),
         cost: isNaN(costPerServing) ? 0 : costPerServing, // ensure cost is always a number
-        salePrice: sale.price,
+        salePrice: sale.salePrice,
       };
     });
     // Sort by date ascending
@@ -127,7 +127,7 @@ export default function RecipeAnalytics() {
   let salesData: { date: string; quantity: number }[] = [];
   if (selectedRecipe) {
     salesData = state.sales
-      .filter(sale => sale.recipeId === selectedRecipe.id)
+      .filter(sale => sale.recipeName === selectedRecipe.name)
       .map(sale => ({
         date: new Date(sale.date).toISOString().slice(0, 10),
         quantity: sale.quantity,
@@ -145,7 +145,7 @@ export default function RecipeAnalytics() {
         console.log('[DEBUG] priceHistory:', product.priceHistory);
       }
     });
-    const sales = state.sales.filter(sale => sale.recipeId === selectedRecipe.id);
+    const sales = state.sales.filter(sale => sale.recipeName === selectedRecipe.name);
     console.log('[DEBUG] Sale Dates:', sales.map(sale => sale.date));
   }
 

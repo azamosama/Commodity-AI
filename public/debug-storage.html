@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Storage</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .button { padding: 10px 15px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        .button:hover { background: #0056b3; }
+        .button.danger { background: #dc3545; }
+        .button.danger:hover { background: #c82333; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Debug Storage</h1>
+        
+        <div class="section">
+            <h2>Actions</h2>
+            <button class="button" onclick="showLocalStorage()">Show localStorage</button>
+            <button class="button" onclick="showSessionStorage()">Show sessionStorage</button>
+            <button class="button danger" onclick="clearAllStorage()">Clear All Storage</button>
+            <button class="button" onclick="window.location.href='/inventory'">Go to Inventory</button>
+        </div>
+        
+        <div class="section">
+            <h2>LocalStorage Contents</h2>
+            <div id="localStorageContent"></div>
+        </div>
+        
+        <div class="section">
+            <h2>SessionStorage Contents</h2>
+            <div id="sessionStorageContent"></div>
+        </div>
+        
+        <div class="section">
+            <h2>API Data</h2>
+            <button class="button" onclick="fetchAPIData()">Fetch API Data</button>
+            <div id="apiContent"></div>
+        </div>
+    </div>
+
+    <script>
+        function showLocalStorage() {
+            const content = document.getElementById('localStorageContent');
+            const data = {};
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    try {
+                        data[key] = JSON.parse(localStorage.getItem(key) || '');
+                    } catch (e) {
+                        data[key] = localStorage.getItem(key);
+                    }
+                }
+            }
+            
+            content.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+        
+        function showSessionStorage() {
+            const content = document.getElementById('sessionStorageContent');
+            const data = {};
+            
+            for (let i = 0; i < sessionStorage.length; i++) {
+                const key = sessionStorage.key(i);
+                if (key) {
+                    try {
+                        data[key] = JSON.parse(sessionStorage.getItem(key) || '');
+                    } catch (e) {
+                        data[key] = sessionStorage.getItem(key);
+                    }
+                }
+            }
+            
+            content.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+        
+        function clearAllStorage() {
+            if (confirm('Are you sure you want to clear all storage? This will reset the app data.')) {
+                localStorage.clear();
+                sessionStorage.clear();
+                alert('All storage cleared!');
+                showLocalStorage();
+                showSessionStorage();
+            }
+        }
+        
+        async function fetchAPIData() {
+            const content = document.getElementById('apiContent');
+            content.innerHTML = 'Loading...';
+            
+            try {
+                const response = await fetch('/api/restaurant-data?restaurantId=default');
+                const data = await response.json();
+                content.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                content.innerHTML = `<pre>Error: ${error.message}</pre>`;
+            }
+        }
+        
+        // Auto-load on page load
+        window.onload = function() {
+            showLocalStorage();
+            showSessionStorage();
+        };
+    </script>
+</body>
+</html>

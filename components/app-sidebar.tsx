@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart3, Building2, Calculator, Home, Package, TrendingUp } from "lucide-react"
+import { BarChart3, Building2, Calculator, Home, Package, TrendingUp, Database, Upload, Download, ChefHat } from "lucide-react"
 import Link from "next/link"
 
 import {
@@ -30,6 +30,54 @@ const items = [
   {
     title: "Recipes",
     url: "/recipes",
+    icon: Calculator,
+    hidden: false,
+  },
+  {
+    title: "Analytics",
+    url: "/analytics",
+    icon: BarChart3,
+    hidden: false,
+  },
+  {
+    title: "Predictive Analytics",
+    url: "/predictive-analytics",
+    icon: TrendingUp,
+    hidden: false,
+  },
+  {
+    title: "AI Menu Generator",
+    url: "/menu-generator",
+    icon: ChefHat,
+    hidden: false,
+  },
+  {
+    title: "Flavor GPT",
+    url: "/questions",
+    icon: null, // Special case for emoji
+    hidden: false,
+  },
+  {
+    title: "POS Integration",
+    url: "/pos-integration",
+    icon: Database,
+    hidden: false,
+  },
+  {
+    title: "Import Data",
+    url: "/data-import",
+    icon: Upload,
+    hidden: false,
+  },
+  {
+    title: "Export Data",
+    url: "/export",
+    icon: Download,
+    hidden: false,
+  },
+  {
+    title: "Process Documentation",
+    url: "/process-documentation",
     icon: Calculator,
     hidden: false,
   },
@@ -69,18 +117,6 @@ const items = [
     icon: TrendingUp,
     hidden: true,
   },
-  {
-    title: "Analytics",
-    url: "/analytics",
-    icon: BarChart3,
-    hidden: false,
-  },
-  {
-    title: "Process Documentation",
-    url: "/process-documentation",
-    icon: Calculator, // You can change this to a more appropriate icon if desired
-    hidden: false,
-  },
 ]
 
 export function AppSidebar() {
@@ -108,18 +144,12 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <Link href={getRestaurantUrl(item.url)}>
-                      <item.icon />
+                      {item.icon ? <item.icon /> : <span>🧠</span>}
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              {/* Flavor GPT tab hidden
-              <a href="/questions" className="flex items-center gap-2 px-3 py-2 rounded hover:bg-gray-100">
-                <span>🧠</span>
-                <span>Flavor GPT</span>
-              </a>
-              */}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

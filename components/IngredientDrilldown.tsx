@@ -13,7 +13,7 @@ export default function IngredientDrilldown() {
 
   // Compute derived data regardless of loading state
   const recipesWithSales = state.recipes.filter(recipe => 
-    state.sales.some(sale => sale.recipeId === recipe.id)
+    state.sales.some(sale => sale.recipeName === recipe.name)
   );
 
   useEffect(() => { setHasMounted(true); }, []);

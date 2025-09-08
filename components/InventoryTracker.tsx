@@ -4,13 +4,15 @@ import { InventoryItem, SalesRecord, Product, Recipe } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 import { Trash } from 'lucide-react';
 import { calculateTotalUnits } from '@/lib/utils';
+import ExportButton from './ExportButton';
+import { DataSyncStatus } from './DataSyncStatus';
 
 export function InventoryTracker() {
   const { state, dispatch } = useCostManagement();
   const { isEditing, setIsEditing } = useEditing();
   const [selectedRecipe, setSelectedRecipe] = useState<string>('');
-  const [quantitySold, setQuantitySold] = useState<number>(0);
-  const [salePrice, setSalePrice] = useState<number>(0);
+  const [quantitySold, setQuantitySold] = useState<string>('0');
+  const [salePrice, setSalePrice] = useState<string>('0');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingStock, setEditingStock] = useState<number>(0);
   const [editingReorderPoint, setEditingReorderPoint] = useState<number>(0);
@@ -64,7 +66,7 @@ export function InventoryTracker() {
   // Handle sales submission (single or recurring)
   const handleSale = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedRecipe || quantitySold <= 0 || salePrice <= 0) return;
+    if (!selectedRecipe || quantitySold === '0' || salePrice === '0') return;
 
     const recipe = state.recipes.find((r) => r.id === selectedRecipe);
     if (!recipe) return;
@@ -89,16 +91,17 @@ export function InventoryTracker() {
       recipe.ingredients.forEach((ingredient) => {
         const product = state.products.find((p) => p.id === ingredient.productId);
         if (product) {
-          let usage = ingredient.quantity * quantitySold;
+          const ingredientQty = typeof ingredient.quantity === 'string' ? parseFloat(ingredient.quantity) || 0 : ingredient.quantity || 0;
+          let usage = ingredientQty * parseInt(quantitySold);
           
           // Convert to base units if needed
           if (ingredient.unit === 'count' && product.unitsPerPackage) {
-            usage = ingredient.quantity * quantitySold;
+            usage = ingredientQty * parseInt(quantitySold);
           } else if (ingredient.unit === product.unit) {
-            usage = ingredient.quantity * quantitySold;
+            usage = ingredientQty * parseInt(quantitySold);
           }
           
-          localInventory[product.id] -= usage;
+          localInventory[product.id] = (localInventory[product.id] || 0) - usage;
         }
       });
 
@@ -137,17 +140,17 @@ export function InventoryTracker() {
         type: 'ADD_SALE',
         payload: {
           id: uuidv4(),
-          recipeId: selectedRecipe,
-          quantity: quantitySold,
+          recipeName: selectedRecipe,
+          quantity: parseInt(quantitySold),
           date: date.toISOString(),
-          price: salePrice,
+          salePrice: parseFloat(salePrice),
         },
       });
     });
 
     setSelectedRecipe('');
-    setQuantitySold(0);
-    setSalePrice(0);
+    setQuantitySold('0');
+    setSalePrice('0');
     setSaleDate(new Date().toISOString().split('T')[0]);
     setRecurrence('none');
     setRangeStart(new Date().toISOString().split('T')[0]);
@@ -210,7 +213,10 @@ export function InventoryTracker() {
 
   return (
     <div className="space-y-6 p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold">Inventory & Sales Tracker</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold">Inventory & Sales Tracker</h2>
+        <DataSyncStatus />
+      </div>
       <form onSubmit={handleSale} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
@@ -233,8 +239,13 @@ export function InventoryTracker() {
             <label className="block text-sm font-medium text-gray-700">Quantity Sold</label>
             <input
               type="number"
-              value={quantitySold ?? 0}
-              onChange={(e) => setQuantitySold(parseInt(e.target.value))}
+              value={quantitySold}
+              onChange={(e) => setQuantitySold(e.target.value)}
+              onBlur={(e) => {
+                if (e.target.value === '' || isNaN(parseInt(e.target.value))) {
+                  setQuantitySold('0');
+                }
+              }}
               min="0"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
               onFocus={() => setIsEditing(true)}
@@ -244,8 +255,13 @@ export function InventoryTracker() {
             <label className="block text-sm font-medium text-gray-700">Sale Price (per unit)</label>
             <input
               type="number"
-              value={isNaN(salePrice) ? '' : salePrice}
-              onChange={(e) => setSalePrice(parseFloat(e.target.value))}
+              value={salePrice}
+              onChange={(e) => setSalePrice(e.target.value)}
+              onBlur={(e) => {
+                if (e.target.value === '' || isNaN(parseFloat(e.target.value))) {
+                  setSalePrice('0');
+                }
+              }}
               min="0"
               step="0.01"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
@@ -318,7 +334,16 @@ export function InventoryTracker() {
       {/* Sales Records Table */}
       {hasMounted && (
         <div className="border-t pt-6">
-          <h3 className="text-lg font-medium mb-4">Sales Records</h3>
+          <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium">Sales Records</h3>
+          <ExportButton 
+            data={state.sales} 
+            dataType="sales" 
+            variant="outline"
+            size="sm"
+            additionalData={{ recipes: state.recipes }}
+          />
+        </div>
           <div className="overflow-x-auto mb-8">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -331,30 +356,34 @@ export function InventoryTracker() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {state.sales.map((sale) => {
-                  const recipe = state.recipes.find((r) => r.id === sale.recipeId);
+                {state.sales
+                  .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+                  .map((sale) => {
                   if (editingSaleId === sale.id && editingSale) {
                     return (
                       <tr key={sale.id} className="bg-yellow-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <select
-                            value={editingSale.recipeId}
-                            onChange={e => setEditingSale({ ...editingSale, recipeId: e.target.value })}
+                            value={editingSale.recipeName || ''}
+                            onChange={e => setEditingSale({ ...editingSale, recipeName: e.target.value })}
                             className="block w-full rounded-md border-gray-300 shadow-sm"
                             onFocus={() => setIsEditing(true)}
                           >
                             <option value="">Select a recipe</option>
                             {state.recipes.map((r) => (
-                              <option key={r.id} value={r.id}>{r.name}</option>
+                              <option key={r.id} value={r.name}>{r.name}</option>
                             ))}
                           </select>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <input
                             type="number"
-                            value={editingSale.quantity}
+                            value={editingSale.quantity || 0}
                             min="0"
-                            onChange={e => setEditingSale({ ...editingSale, quantity: parseInt(e.target.value) })}
+                            onChange={e => {
+                              const value = e.target.value;
+                              setEditingSale({ ...editingSale, quantity: value === '' ? 0 : parseInt(value) || 0 });
+                            }}
                             className="block w-full rounded-md border-gray-300 shadow-sm"
                             onFocus={() => setIsEditing(true)}
                           />
@@ -362,10 +391,13 @@ export function InventoryTracker() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           <input
                             type="number"
-                            value={editingSale.price}
+                            value={editingSale.salePrice || 0}
                             min="0"
                             step="0.01"
-                            onChange={e => setEditingSale({ ...editingSale, price: parseFloat(e.target.value) })}
+                            onChange={e => {
+                              const value = e.target.value;
+                              setEditingSale({ ...editingSale, salePrice: value === '' ? 0 : parseFloat(value) || 0 });
+                            }}
                             className="block w-full rounded-md border-gray-300 shadow-sm"
                             onFocus={() => setIsEditing(true)}
                           />
@@ -388,9 +420,9 @@ export function InventoryTracker() {
                   }
                   return (
                     <tr key={sale.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{recipe ? recipe.name : '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sale.recipeName || '-'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{sale.quantity}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${sale.price.toFixed(2)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${sale.salePrice ? sale.salePrice.toFixed(2) : '0.00'}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {toDateInputString(sale.date)}
                       </td>
@@ -415,7 +447,16 @@ export function InventoryTracker() {
       )}
 
       <div className="border-t pt-6">
-        <h3 className="text-lg font-medium mb-4">Current Inventory</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium">Current Inventory</h3>
+          <ExportButton 
+            data={state.products} 
+            dataType="inventory" 
+            variant="outline"
+            size="sm"
+            additionalData={{ inventory: state.inventory, recipes: state.recipes, sales: state.sales }}
+          />
+        </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -434,6 +475,7 @@ export function InventoryTracker() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {state.products.map((product) => {
+                console.log('InventoryTracker: Rendering product:', product.name, product.id);
                 const item = state.inventory.find((i) => i.productId === product.id);
                 // Show true currentStock, even if negative or positive
                 const currentStock = item ? item.currentStock : calculateTotalUnits(product);
@@ -492,7 +534,7 @@ export function InventoryTracker() {
                             }`}
                             onFocus={() => setIsEditing(true)}
                           />
-                          <span className="text-gray-500">/</span>
+                          <span className="text-gray-500 text-xs">/</span>
                           <input
                             type="number"
                             min="0"
@@ -549,8 +591,9 @@ export function InventoryTracker() {
                       state.recipes.forEach(recipe => {
                         const ingredient = recipe.ingredients.find(ing => ing.productId === product.id);
                         if (ingredient) {
-                          const numSold = state.sales.filter(s => s.recipeId === recipe.id).reduce((sum, s) => sum + s.quantity, 0);
-                          used += ingredient.quantity * numSold;
+                          const numSold = state.sales.filter(s => s.recipeName === recipe.name).reduce((sum, s) => sum + s.quantity, 0);
+                          const ingredientQty = typeof ingredient.quantity === 'string' ? parseFloat(ingredient.quantity) || 0 : ingredient.quantity || 0;
+                          used += ingredientQty * numSold;
                         }
                       });
                       const variance = purchased - used;

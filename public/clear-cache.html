@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clearing Cache...</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="spinner"></div>
+        <h2>Clearing Browser Cache...</h2>
+        <p>This will clear all cached data and reload the page with fresh data.</p>
+        <p>You should see your restored sales data and no more duplicate key errors.</p>
+    </div>
+
+    <script>
+        // Clear all browser storage
+        function clearAllStorage() {
+            try {
+                // Clear localStorage
+                localStorage.clear();
+                console.log('localStorage cleared');
+                
+                // Clear sessionStorage
+                sessionStorage.clear();
+                console.log('sessionStorage cleared');
+                
+                // Clear IndexedDB (if any)
+                if ('indexedDB' in window) {
+                    indexedDB.databases().then(databases => {
+                        databases.forEach(db => {
+                            indexedDB.deleteDatabase(db.name);
+                        });
+                    });
+                }
+                
+                // Clear cache storage (if any)
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        names.forEach(name => {
+                            caches.delete(name);
+                        });
+                    });
+                }
+                
+                console.log('All browser storage cleared successfully');
+                return true;
+            } catch (error) {
+                console.error('Error clearing storage:', error);
+                return false;
+            }
+        }
+
+        // Execute the cache clearing
+        setTimeout(() => {
+            const success = clearAllStorage();
+            
+            if (success) {
+                // Redirect to inventory page after clearing cache
+                setTimeout(() => {
+                    window.location.href = '/inventory';
+                }, 1000);
+            } else {
+                // If clearing failed, still redirect but show message
+                document.querySelector('.container').innerHTML = `
+                    <h2>Cache Clear Attempted</h2>
+                    <p>Please manually clear your browser cache and refresh the page.</p>
+                    <p><a href="/inventory" style="color: #3498db;">Go to Inventory Page</a></p>
+                `;
+            }
+        }, 500);
+    </script>
+</body>
+</html>

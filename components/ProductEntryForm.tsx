@@ -5,9 +5,10 @@ import { v4 as uuidv4 } from 'uuid';
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Trash } from 'lucide-react';
 import { calculateTotalUnits } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 export function ProductEntryForm() {
-  const { dispatch, state } = useCostManagement();
+  const { dispatch, state, forceRefresh } = useCostManagement();
   const { isEditing, setIsEditing } = useEditing();
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [formData, setFormData] = useState<Partial<Product>>({
@@ -154,7 +155,9 @@ export function ProductEntryForm() {
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-4 p-4 sm:p-6 bg-white rounded-lg shadow">
-        <h2 className="text-2xl font-bold mb-4">{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold">{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -425,21 +428,16 @@ export function ProductEntryForm() {
         )}
 
         <div className="mt-6 flex flex-col sm:flex-row items-center space-y-3 sm:space-y-0 sm:space-x-4">
-          <button
-            type="submit"
-            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            {editingProduct ? 'Update Product' : 'Add Product'}
-          </button>
-          {editingProduct && (
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="w-full flex justify-center py-3 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Cancel
-            </button>
-          )}
+          <div className="flex gap-2">
+            <Button onClick={handleSubmit} disabled={!formData.name}>
+              {editingProduct ? 'Update Product' : 'Add Product'}
+            </Button>
+            {editingProduct && (
+              <Button variant="outline" onClick={handleCancel}>
+                Cancel
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Product List Table */}
@@ -447,7 +445,7 @@ export function ProductEntryForm() {
           <div className="mt-6 sm:mt-8">
             <h3 className="text-base sm:text-lg font-medium mb-2">Current Products</h3>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table key={`products-table-${state.products.length}-${state.products.map(p => p.id).join('-')}`} className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
@@ -463,7 +461,9 @@ export function ProductEntryForm() {
                   {state.products.map((product) => (
                     <React.Fragment key={product.id}>
                       <tr>
-                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
+                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                          {product.name}
+                        </td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.categoryType}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.unit}</td>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">{product.packageSize} {product.packageUnit}</td>
@@ -474,7 +474,14 @@ export function ProductEntryForm() {
                             <button
                               type="button"
                               className="text-red-500 hover:text-red-700 p-1 sm:p-0"
-                              onClick={() => dispatch({ type: 'DELETE_PRODUCT', payload: product.id })}
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to delete "${product.name}"? This action cannot be undone.`)) {
+                                  console.log('Deleting product:', product.name, 'ID:', product.id);
+                                  console.log('Current products in state:', state.products.map(p => ({ id: p.id, name: p.name })));
+                                  dispatch({ type: 'DELETE_PRODUCT', payload: product.id });
+                                  console.log('Delete dispatch sent for product:', product.name);
+                                }
+                              }}
                               title="Delete Product"
                             >
                               <Trash className="w-4 h-4" />

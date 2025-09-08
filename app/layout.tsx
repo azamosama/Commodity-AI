@@ -8,6 +8,9 @@ import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { RestaurantProvider } from "@/contexts/restaurant-context"
 import { CostManagementProvider } from '@/contexts/CostManagementContext';
 import { RestaurantIndicator } from '@/components/RestaurantIndicator';
+import { GlobalAlertBanner } from '@/components/GlobalAlertBanner';
+import { AlertBannerProvider } from '@/contexts/AlertBannerContext';
+import { DynamicLayout } from '@/components/DynamicLayout';
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -31,21 +34,24 @@ export default function RootLayout({
       <body className={inter.className}>
         <RestaurantProvider>
           <CostManagementProvider>
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset>
+            <AlertBannerProvider>
+              <SidebarProvider>
+                <AppSidebar />
+              <SidebarInset className="relative">
+                <GlobalAlertBanner />
                 <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sm:px-6">
                   <SidebarTrigger className="-ml-1" />
                   <div className="flex items-center gap-2">
                     <h1 className="text-lg sm:text-xl font-semibold">Flavor Pulse</h1>
                   </div>
                 </header>
-                <main className="flex-1 overflow-auto p-4 sm:p-6">
+                <DynamicLayout>
                   <RestaurantIndicator />
                   {children}
-                </main>
+                </DynamicLayout>
               </SidebarInset>
             </SidebarProvider>
+          </AlertBannerProvider>
           </CostManagementProvider>
         </RestaurantProvider>
       </body>

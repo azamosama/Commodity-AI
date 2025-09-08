@@ -94,7 +94,12 @@ const savePersistentData = async (data: any) => {
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { restaurantId } = req.query;
+  // Add cache-busting headers to prevent browser caching
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
+  const { restaurantId = 'default' } = req.query;
   if (!restaurantId || typeof restaurantId !== 'string') {
     return res.status(400).json({ error: 'Restaurant ID is required' });
   }

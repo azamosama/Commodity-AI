@@ -80,7 +80,7 @@ export function getInventoryTimeline(productId: string, state: {
       const ingredient = recipe.ingredients.find((ing: any) => ing.productId === productId);
       if (!ingredient) return null;
       // Calculate usage for this sale
-      let usage = ingredient.quantity * sale.quantity;
+      let usage = (ingredient.quantity || 0) * (sale.quantity || 0);
       return {
         date: new Date(sale.date),
         type: 'sale' as const,
@@ -129,14 +129,97 @@ export function getInventoryTimeline(productId: string, state: {
       runningStock = event.stock !== null ? event.stock : runningStock;
     } else if (event.type === 'restock') {
       if (event.source === 'reset') {
-        runningStock = event.amount; // reset to this value
+        runningStock = event.amount || 0; // reset to this value
       } else {
-        runningStock += event.amount; // increment by restock amount
+        runningStock += event.amount || 0; // increment by restock amount
       }
     } else if (event.type === 'sale') {
-      runningStock += event.amount; // amount is negative
+      runningStock += event.amount || 0; // amount is negative
     }
     return { ...event, stock: runningStock };
   });
   return timeline;
+}
+
+/**
+ * Generates a unique product ID based on the product name
+ * Ensures no duplicate IDs exist in the current product list
+ */
+export function generateUniqueProductId(productName: string, existingProducts: Array<{ id: string; name: string }>): string {
+  // Convert product name to a base ID (lowercase, replace spaces with hyphens, remove special chars)
+  const baseId = productName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters except spaces and hyphens
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
+    .replace(/^-|-$/g, ''); // Remove leading/trailing hyphens
+
+  // Check if base ID already exists
+  const existingIds = new Set(existingProducts.map(p => p.id));
+  
+  if (!existingIds.has(baseId)) {
+    return baseId;
+  }
+
+  // If base ID exists, try with numbers
+  let counter = 1;
+  let newId = `${baseId}-${counter}`;
+  
+  while (existingIds.has(newId)) {
+    counter++;
+    newId = `${baseId}-${counter}`;
+  }
+  
+  return newId;
+}
+
+/**
+ * Validates that all products have unique IDs
+ * Returns an array of duplicate IDs if any exist
+ */
+export function validateUniqueProductIds(products: Array<{ id: string; name: string }>): string[] {
+  const seenIds = new Set<string>();
+  const duplicates: string[] = [];
+  
+  for (const product of products) {
+    if (seenIds.has(product.id)) {
+      duplicates.push(product.id);
+    } else {
+      seenIds.add(product.id);
+    }
+  }
+  
+  return duplicates;
+}
+
+/**
+ * Fixes duplicate product IDs by generating new unique IDs
+ * Returns the updated products array
+ */
+export function fixDuplicateProductIds(products: Array<{ id: string; name: string }>): Array<{ id: string; name: string }> {
+  const seenIds = new Set<string>();
+  const updatedProducts = [...products];
+  
+  for (let i = 0; i < updatedProducts.length; i++) {
+    const product = updatedProducts[i];
+    
+    if (seenIds.has(product.id)) {
+      // Generate a new unique ID for this product
+      const baseId = product.id.replace(/-\d+$/, ''); // Remove existing number suffix
+      let counter = 1;
+      let newId = `${baseId}-${counter}`;
+      
+      while (seenIds.has(newId)) {
+        counter++;
+        newId = `${baseId}-${counter}`;
+      }
+      
+      updatedProducts[i] = { ...product, id: newId };
+      seenIds.add(newId);
+    } else {
+      seenIds.add(product.id);
+    }
+  }
+  
+  return updatedProducts;
 }

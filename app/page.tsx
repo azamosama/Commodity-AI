@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts"
 import { TrendingDown, TrendingUp, AlertTriangle, DollarSign, Package, Users, Clock, Calendar } from "lucide-react"
 import { useRestaurant } from "@/contexts/restaurant-context"
-import { CostManagementProvider, useCostManagement } from '@/contexts/CostManagementContext';
+import { useCostManagement } from '@/contexts/CostManagementContext';
 import { ProductEntryForm } from '@/components/ProductEntryForm';
 import { RecipeCostCalculator } from '@/components/RecipeCostCalculator';
 import { ExpenseTracker } from '@/components/ExpenseTracker';
@@ -196,60 +196,58 @@ export default function Dashboard() {
   const avgWeeklySpending = totalSpending / weeklySpendingData.length
 
   return (
-    <CostManagementProvider>
-      <div className="min-h-screen bg-gray-100">
-        <header className="bg-white shadow">
-          <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-            <h1 className="text-3xl font-bold text-gray-900">Cost Management Dashboard</h1>
-          </div>
-        </header>
+    <div className="min-h-screen bg-gray-100">
+      <header className="bg-white shadow">
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <h1 className="text-3xl font-bold text-gray-900">Cost Management Dashboard</h1>
+        </div>
+      </header>
 
-        <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <RestaurantLinks />
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading restaurant data...</p>
-                </div>
+      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="py-6">
+          <RestaurantLinks />
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading restaurant data...</p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-6">
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Product Management</h2>
-                <ProductEntryForm />
-              </section>
-
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Recipe Cost Calculator</h2>
-                <RecipeCostCalculator />
-              </section>
-
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Inventory & Sales Tracking</h2>
-                <InventoryTracker />
-              </section>
-
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Expense Tracking</h2>
-                <ExpenseTracker />
-              </section>
-
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Breakeven & Profitability</h2>
-                <ProfitabilityDashboard />
-              </section>
-
-              <section>
-                <h2 className="text-xl font-semibold mb-4">Cost-Saving Recommendations</h2>
-                <CostSavingRecommendations />
-              </section>
             </div>
-            )}
+          ) : (
+            <div className="grid grid-cols-1 gap-6">
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Product Management</h2>
+              <ProductEntryForm />
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Recipe Cost Calculator</h2>
+              <RecipeCostCalculator />
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Inventory & Sales Tracking</h2>
+              <InventoryTracker />
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Expense Tracking</h2>
+              <ExpenseTracker />
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Breakeven & Profitability</h2>
+              <ProfitabilityDashboard />
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Cost-Saving Recommendations</h2>
+              <CostSavingRecommendations />
+            </section>
           </div>
-        </main>
-                </div>
-    </CostManagementProvider>
+          )}
+        </div>
+      </main>
+    </div>
   )
 }

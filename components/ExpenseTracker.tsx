@@ -23,7 +23,10 @@ export function ExpenseTracker() {
 
   const handleEdit = (expenseToEdit: Expense) => {
     setEditingExpense(expenseToEdit);
-    setExpense(expenseToEdit);
+    setExpense({
+      ...expenseToEdit,
+      date: expenseToEdit.date instanceof Date ? expenseToEdit.date : new Date(expenseToEdit.date)
+    });
     setIsEditing(true);
   };
 
@@ -126,7 +129,7 @@ export function ExpenseTracker() {
             <input
               type="date"
               name="date"
-              value={expense.date?.toISOString().split('T')[0]}
+              value={expense.date instanceof Date ? expense.date.toISOString().split('T')[0] : new Date(expense.date || Date.now()).toISOString().split('T')[0]}
               onChange={(e) => setExpense((prev) => ({ ...prev, date: new Date(e.target.value) }))}
               required
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
