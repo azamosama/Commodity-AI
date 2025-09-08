@@ -37,14 +37,19 @@ function RestaurantLinks() {
     setCurrentUrl(window.location.origin);
     const urlParams = new URLSearchParams(window.location.search);
     const restaurant = urlParams.get('restaurant');
+    const isAdmin = urlParams.get('admin') === 'true';
     console.log('Dashboard: Current URL:', window.location.href);
     console.log('Dashboard: Restaurant parameter:', restaurant);
+    console.log('Dashboard: Admin parameter:', isAdmin);
     setCurrentRestaurant(restaurant);
   }, []);
 
-  // Only show this component on the default URL (not restaurant-specific URLs)
-  if (currentRestaurant) {
-    return null; // Hide on restaurant-specific URLs
+  // Only show this component for admin access (admin=true parameter)
+  const urlParams = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+  const isAdmin = urlParams.get('admin') === 'true';
+  
+  if (!isAdmin) {
+    return null; // Hide unless admin parameter is present
   }
 
   // Don't render until we have the current URL
@@ -171,6 +176,10 @@ function RestaurantLinks() {
       <p className="text-sm text-gray-600 mt-3">
         Each restaurant gets their own unique link with isolated data. Share these links with different restaurants.
       </p>
+      <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+        <strong>Admin Access:</strong> This section is only visible with admin privileges. 
+        Access via: <code className="bg-yellow-100 px-1 rounded">{currentUrl}?admin=true</code>
+      </div>
     </div>
   );
 }
