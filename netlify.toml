@@ -1,0 +1,30 @@
+[build]
+  # Build command for Next.js
+  command = "pnpm run build"
+  
+  # Publish directory (Next.js output)
+  publish = ".next"
+  
+  # Environment variables
+  [build.environment]
+    NODE_VERSION = "18"
+    NPM_FLAGS = "--version"
+    
+# Redirects for Next.js
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Headers for security
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Ignore Python files and services
+[build.ignore]
+  ignore = "services/*, requirements.txt, *.py, __pycache__/*, .python-version"
