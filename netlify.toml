@@ -25,6 +25,3 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# Ignore Python files and services
-[build.ignore]
-  ignore = "services/*, requirements.txt, *.py, __pycache__/*, .python-version"
