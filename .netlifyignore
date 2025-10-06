@@ -14,6 +14,12 @@ venv/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Python build artifacts
+*.egg-info/
+dist/
+build/
+.mesonpy-*/
+
 # Development files
 .env.local
 .env.development.local
