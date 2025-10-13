@@ -1,23 +1,21 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 import { ProfitabilityAnalyzer } from '@/lib/profitability-analyzer';
 import fs from 'fs';
 import path from 'path';
 
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'restaurant-data.json');
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { restaurantId = 'default', includeRecommendations = 'true' } = req.query;
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const restaurantId = searchParams.get('restaurantId') || 'default';
+  const includeRecommendations = searchParams.get('includeRecommendations') || 'true';
 
   try {
     // Load restaurant data
-    const restaurantData = await loadRestaurantData(restaurantId as string);
+    const restaurantData = await loadRestaurantData(restaurantId);
     
     if (!restaurantData) {
-      return res.status(404).json({ error: 'Restaurant data not found' });
+      return NextResponse.json({ error: 'Restaurant data not found' }, { status: 404 });
     }
 
     const { recipes, products, sales } = restaurantData;
@@ -68,14 +66,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     };
 
-    return res.status(200).json(response);
+    return NextResponse.json(response);
 
   } catch (error) {
     console.error('Error in profitability analysis:', error);
-    return res.status(500).json({ 
+    return NextResponse.json({ 
       error: 'Failed to perform profitability analysis',
       details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    }, { status: 500 });
   }
 }
 

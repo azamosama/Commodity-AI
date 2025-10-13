@@ -1,39 +1,34 @@
-import type { NextApiRequest, NextApiResponse } from 'next';
+import { NextRequest, NextResponse } from 'next/server';
 import { SubstitutionEngine, MenuGenerationContext } from '@/lib/substitution-engine';
 import fs from 'fs';
 import path from 'path';
 
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'restaurant-data.json');
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
-  const { 
-    restaurantId = 'default', 
-    recipeId, 
-    includeOptimization = 'false',
-    minSavings = '0.10', // Minimum $0.10 savings per serving
-    generateMenuItems = 'false',
-    menuCount = '5',
-    targetCostMin = '2.00',
-    targetCostMax = '8.00',
-    targetProfitMargin = '40',
-    dietaryRestrictions = '',
-    flavorPreferences = ''
-  } = req.query;
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const restaurantId = searchParams.get('restaurantId') || 'default';
+  const recipeId = searchParams.get('recipeId');
+  const includeOptimization = searchParams.get('includeOptimization') || 'false';
+  const minSavings = searchParams.get('minSavings') || '0.10';
+  const generateMenuItems = searchParams.get('generateMenuItems') || 'false';
+  const menuCount = searchParams.get('menuCount') || '5';
+  const targetCostMin = searchParams.get('targetCostMin') || '2.00';
+  const targetCostMax = searchParams.get('targetCostMax') || '8.00';
+  const targetProfitMargin = searchParams.get('targetProfitMargin') || '40';
+  const dietaryRestrictions = searchParams.get('dietaryRestrictions') || '';
+  const flavorPreferences = searchParams.get('flavorPreferences') || '';
 
   try {
     // Load restaurant data
-    const restaurantData = await loadRestaurantData(restaurantId as string);
+    const restaurantData = await loadRestaurantData(restaurantId);
     
     if (!restaurantData) {
-      return res.status(404).json({ error: 'Restaurant data not found' });
+      return NextResponse.json({ error: 'Restaurant data not found' }, { status: 404 });
     }
 
     const { recipes, products, sales } = restaurantData;
-    const minSavingsAmount = parseFloat(minSavings as string);
+    const minSavingsAmount = parseFloat(minSavings);
 
     let results: any = {};
 
@@ -41,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Get substitutions for specific recipe
       const recipe = recipes.find((r: any) => r.id === recipeId);
       if (!recipe) {
-        return res.status(404).json({ error: 'Recipe not found' });
+        return NextResponse.json({ error: 'Recipe not found' }, { status: 404 });
       }
 
       const substitutions = await SubstitutionEngine.findOptimalSubstitutions(
@@ -141,21 +136,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (generateMenuItems === 'true') {
         const menuContext: MenuGenerationContext = {
           targetCostRange: {
-            min: parseFloat(targetCostMin as string),
-            max: parseFloat(targetCostMax as string)
+            min: parseFloat(targetCostMin),
+            max: parseFloat(targetCostMax)
           },
-          targetProfitMargin: parseFloat(targetProfitMargin as string),
+          targetProfitMargin: parseFloat(targetProfitMargin),
           availableIngredients: products,
           excludedIngredients: [], // Could be made configurable
           preferredCategories: ['main', 'dessert', 'appetizer', 'beverage', 'side'],
           maxPreparationTime: 60, // 60 minutes max
-          dietaryRestrictions: dietaryRestrictions ? (dietaryRestrictions as string).split(',') : [],
-          flavorPreferences: flavorPreferences ? (flavorPreferences as string).split(',') : []
+          dietaryRestrictions: dietaryRestrictions ? dietaryRestrictions.split(',') : [],
+          flavorPreferences: flavorPreferences ? flavorPreferences.split(',') : []
         };
 
         const generatedMenuItems = await SubstitutionEngine.generateMenuItems(
           menuContext,
-          parseInt(menuCount as string)
+          parseInt(menuCount)
         );
 
         results.generatedMenuItems = generatedMenuItems;
@@ -163,14 +158,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    return res.status(200).json(results);
+    return NextResponse.json(results);
 
   } catch (error) {
     console.error('Error in substitution recommendations:', error);
-    return res.status(500).json({ 
+    return NextResponse.json({ 
       error: 'Failed to generate substitution recommendations',
       details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    }, { status: 500 });
   }
 }
 
