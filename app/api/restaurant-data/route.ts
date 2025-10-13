@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 
+export const runtime = 'nodejs';
+
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'restaurant-data.json');
 
 export async function GET(request: NextRequest) {
