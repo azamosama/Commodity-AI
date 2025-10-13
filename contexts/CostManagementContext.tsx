@@ -1114,18 +1114,10 @@ const getRestaurantId = () => {
       return restaurant;
     }
     
-    // For base URL (no restaurant parameter), generate a unique session-based ID
-    // This prevents data sharing between different users on the base URL
-    let sessionId = sessionStorage.getItem('temp-restaurant-id');
-    if (!sessionId) {
-      sessionId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      sessionStorage.setItem('temp-restaurant-id', sessionId);
-      console.log('CostManagementContext: Generated new session ID:', sessionId);
-    } else {
-      console.log('CostManagementContext: Using existing session ID:', sessionId);
-    }
-    
-    return sessionId;
+    // For demo purposes, use 'default' to load our mock data
+    // This ensures the demo shows the sales records we added
+    console.log('CostManagementContext: Using default restaurant ID for demo');
+    return 'default';
   }
   return 'default';
 };

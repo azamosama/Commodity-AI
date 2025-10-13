@@ -1,586 +1,633 @@
+"use client";
+
 import React, { useState, useEffect } from 'react';
-import { useCostManagement } from '@/contexts/CostManagementContext';
-import { ChevronDown, ChevronUp, Edit, Trash } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  TrendingUp, 
+  TrendingDown, 
+  AlertTriangle, 
+  DollarSign, 
+  Target,
+  Lightbulb,
+  ChefHat,
+  BarChart3,
+  RefreshCw
+} from 'lucide-react';
+
+interface ProfitabilityAnalysis {
+  recipeId: string;
+  recipeName: string;
+  currentCostPerServing: number;
+  salePrice: number;
+  profitMargin: number;
+  profitMarginPercentage: number;
+  isProfitable: boolean;
+  profitabilityStatus: 'high' | 'medium' | 'low' | 'unprofitable';
+  costBreakdown: IngredientCostBreakdown[];
+  recommendations: ProfitabilityRecommendation[];
+  lastUpdated: string;
+}
+
+interface IngredientCostBreakdown {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unit: string;
+  currentPrice: number;
+  costPerServing: number;
+  priceChangeFromLastUpdate?: number;
+  priceChangePercentage?: number;
+  isPriceVolatile: boolean;
+}
+
+interface ProfitabilityRecommendation {
+  type: 'substitution' | 'new_menu_item' | 'price_adjustment' | 'portion_optimization';
+  priority: 'high' | 'medium' | 'low';
+  title: string;
+  description: string;
+  potentialSavings: number;
+  potentialProfitImprovement: number;
+  implementation: {
+    steps: string[];
+    estimatedTime: string;
+    riskLevel: 'low' | 'medium' | 'high';
+  };
+  alternatives?: AlternativeOption[];
+}
+
+interface AlternativeOption {
+  name: string;
+  description: string;
+  costPerServing: number;
+  profitMargin: number;
+  pros: string[];
+  cons: string[];
+}
+
+interface MenuOptimizationSuggestion {
+  type: 'new_recipe' | 'seasonal_adjustment' | 'cost_reduction';
+  name: string;
+  description: string;
+  estimatedCostPerServing: number;
+  suggestedPrice: number;
+  estimatedProfitMargin: number;
+  ingredients: {
+    productId: string;
+    name: string;
+    quantity: number;
+    unit: string;
+    currentPrice: number;
+  }[];
+  seasonalFactors?: {
+    ingredient: string;
+    priceTrend: 'increasing' | 'decreasing' | 'stable';
+    seasonalAvailability: string[];
+  }[];
+}
+
+interface ProfitabilityData {
+  restaurantId: string;
+  timestamp: string;
+  summary: {
+    totalRecipes: number;
+    profitableRecipes: number;
+    unprofitableRecipes: number;
+    averageProfitMargin: number;
+    totalPotentialSavings: number;
+    criticalAlerts: number;
+    warningAlerts: number;
+  };
+  analyses: ProfitabilityAnalysis[];
+  alerts: {
+    critical: ProfitabilityAnalysis[];
+    warning: ProfitabilityAnalysis[];
+    info: ProfitabilityAnalysis[];
+  };
+  menuSuggestions: MenuOptimizationSuggestion[];
+  recommendations: {
+    topCostReductions: ProfitabilityRecommendation[];
+    priceAdjustments: ProfitabilityRecommendation[];
+  };
+}
 
 export function ProfitabilityDashboard() {
-  const { state, dispatch } = useCostManagement();
-  const [expandedRecipeId, setExpandedRecipeId] = useState<string | null>(null);
-  const [hasMounted, setHasMounted] = useState(false);
-  const [profitPeriod, setProfitPeriod] = useState<'year' | 'month' | 'week' | 'day'>('month');
-  const [revenueMode, setRevenueMode] = useState<'total' | 'perPeriod'>('total');
-  useEffect(() => { setHasMounted(true); }, []);
-  if (!hasMounted) return null;
+  const [data, setData] = useState<ProfitabilityData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const toggleExpanded = (recipeId: string) => {
-    setExpandedRecipeId(expandedRecipeId === recipeId ? null : recipeId);
-  };
-
-  const handleEditRecipe = (recipe: any) => {
-    // Navigate to recipes page with edit mode
-    window.location.href = `/recipes?edit=${recipe.id}`;
-  };
-
-  const handleDeleteRecipe = (recipeId: string) => {
-    if (confirm('Are you sure you want to delete this recipe? This action cannot be undone.')) {
-      dispatch({ type: 'DELETE_RECIPE', payload: recipeId });
-    }
-  };
-
-  // Calculate total expenses
-  const totalExpenses = state.expenses.reduce((sum, e) => sum + e.amount, 0);
-
-  // Calculate total revenue
-  const totalRevenue = state.sales.reduce((sum, sale) => sum + (sale.salePrice * sale.quantity), 0);
-
-  // Calculate profit margin for each recipe
-  const recipeMargins = state.recipes.map((recipe) => {
-    // Find all sales for this recipe
-    const sales = state.sales.filter((s) => s.recipeName === recipe.name);
-    const revenue = sales.reduce((sum, s) => sum + (s.salePrice * s.quantity), 0);
-    // Calculate cost per serving for each sale using historical prices
-    let totalCost = 0;
-    sales.forEach(sale => {
-      const saleDate = new Date(sale.date);
-      const costPerServing = recipe.ingredients.reduce((sum, ingredient) => {
-        const product = state.products.find((p) => p.id === ingredient.productId);
-        if (!product) return sum;
-        const productCost = getProductCostOnDate(product, saleDate);
-        const totalUnits = (Number(product.quantity) || 0) * (Number(product.packageSize) || 1);
-        const unitCost = totalUnits > 0 ? (Number(productCost) || 0) / totalUnits : 0;
-        return sum + unitCost * (Number(ingredient.quantity) || 0);
-      }, 0);
-      totalCost += costPerServing * (Number(sale.quantity) || 0);
-    });
-    const margin = revenue - totalCost;
-    return {
-      recipe,
-      revenue,
-      totalCost,
-      margin,
-      marginPercent: revenue > 0 ? (margin / revenue) * 100 : 0,
-    };
-  });
-
-  // --- Breakeven Breakdown Logic ---
-  // Helper to normalize recurring expenses to annual, monthly, weekly, daily
-  const getPeriodAmount = (amount: number, frequency?: string) => {
-    switch (frequency) {
-      case 'daily':
-        return {
-          year: amount * 365,
-          month: amount * 30,
-          week: amount * 7,
-          day: amount,
-        };
-      case 'weekly':
-        return {
-          year: amount * 52,
-          month: (amount * 52) / 12,
-          week: amount,
-          day: amount / 7,
-        };
-      case 'monthly':
-        return {
-          year: amount * 12,
-          month: amount,
-          week: (amount * 12) / 52,
-          day: (amount * 12) / 365,
-        };
-      default:
-        return {
-          year: amount,
-          month: amount / 12,
-          week: amount / 52,
-          day: amount / 365,
-        };
-    }
-  };
-
-  // Aggregate expenses by category and frequency
-  const categories = Array.from(new Set(state.expenses.map(e => e.category)));
-  const expenseBreakdown: Record<string, { year: number; month: number; week: number; day: number }> = {};
-  categories.forEach(category => {
-    const catExpenses = state.expenses.filter(e => e.category === category);
-    let year = 0, month = 0, week = 0, day = 0;
-    catExpenses.forEach(e => {
-      const freq = e.recurring ? e.frequency : undefined;
-      const period = getPeriodAmount(e.amount, freq);
-      year += period.year;
-      month += period.month;
-      week += period.week;
-      day += period.day;
-    });
-    expenseBreakdown[category] = { year, month, week, day };
-  });
-
-  // Calculate actual COGS (food cost) from sales/recipes
-  const now = new Date();
-  const msInDay = 24 * 60 * 60 * 1000;
-  const salesWithDates = state.sales.map(sale => ({ ...sale, date: new Date(sale.date) }));
-  // Group sales by period
-  let cogsYear = 0, cogsMonth = 0, cogsWeek = 0;
-  const cogsByDay: Record<string, number> = {};
-  salesWithDates.forEach(sale => {
-    const recipe = state.recipes.find(r => r.name === sale.recipeName);
-    if (!recipe) return;
-    const saleDate = sale.date;
-    // Calculate cost per serving for this recipe using historical prices
-    const costPerServing = recipe.ingredients.reduce((sum, ingredient) => {
-      const product = state.products.find(p => p.id === ingredient.productId);
-      if (!product) return sum;
-      const productCost = getProductCostOnDate(product, saleDate);
-      const totalUnits = (Number(product.quantity) || 0) * (Number(product.packageSize) || 1);
-      const unitCost = totalUnits > 0 ? (Number(productCost) || 0) / totalUnits : 0;
-      return sum + unitCost * (Number(ingredient.quantity) || 0);
-    }, 0);
-    // Total COGS for this sale
-    const totalIngredientCost = costPerServing * (Number(sale.quantity) || 0);
-    // Group by day (YYYY-MM-DD)
-    const dayKey = sale.date.toISOString().split('T')[0];
-    cogsByDay[dayKey] = (cogsByDay[dayKey] || 0) + totalIngredientCost;
-    // For year, month, week sums
-    const daysAgo = Math.floor((Number(now) - Number(sale.date)) / msInDay);
-    if (daysAgo < 7) cogsWeek += totalIngredientCost;
-    if (daysAgo < 30) cogsMonth += totalIngredientCost;
-    if (daysAgo < 365) cogsYear += totalIngredientCost;
-  });
-  console.log('cogsByDay:', cogsByDay);
-  const dayKeys = Object.keys(cogsByDay);
-  console.log('dayKeys:', dayKeys);
-  let cogsDay = 0;
-  if (dayKeys.length > 0) {
-    const totalCogs = Object.values(cogsByDay).reduce((a, b) => a + b, 0);
-    cogsDay = totalCogs / dayKeys.length;
-    console.log('totalCogs:', totalCogs, 'dayKeys.length:', dayKeys.length, 'cogsDay:', cogsDay);
-  }
-
-  // Move avgWeek calculation here so it is defined before use
-  const getWeekKey = (date: Date) => {
-    const d = new Date(date);
-    d.setHours(0,0,0,0);
-    const firstDayOfYear = new Date(d.getFullYear(), 0, 1);
-    const pastDaysOfYear = Math.floor((d.getTime() - firstDayOfYear.getTime()) / msInDay);
-    return `${d.getFullYear()}-W${Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7)}`;
-  };
-  const cogsByWeek: Record<string, number> = {};
-  salesWithDates.forEach(sale => {
-    const recipe = state.recipes.find(r => r.name === sale.recipeName);
-    if (!recipe) return;
-    let totalIngredientCost = 0;
-    recipe.ingredients.forEach(ingredient => {
-      const product = state.products.find(p => p.id === ingredient.productId);
-      if (!product) return;
-      let costPerUnit = getCostPerBaseUnit(product);
-      totalIngredientCost += (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0) * (Number(sale.quantity) || 0);
-    });
-    const weekKey = getWeekKey(sale.date);
-    cogsByWeek[weekKey] = (cogsByWeek[weekKey] || 0) + totalIngredientCost;
-  });
-  const avgWeek = Object.keys(cogsByWeek).length > 0 ? Object.values(cogsByWeek).reduce((a, b) => a + b, 0) / Object.keys(cogsByWeek).length : 0;
-
-  expenseBreakdown['Food (COGS)'] = {
-    year: cogsYear,
-    month: cogsMonth,
-    week: avgWeek, // Use average per week with sales
-    day: cogsDay,
-  };
-
-  // Calculate total breakeven for each period
-  const totalYear = Object.values(expenseBreakdown).reduce((sum, v) => sum + (v as { year: number }).year, 0);
-  const totalMonth = Object.values(expenseBreakdown).reduce((sum, v) => sum + (v as { month: number }).month, 0);
-  const totalWeek = Object.values(expenseBreakdown).reduce((sum, v) => sum + (v as { week: number }).week, 0);
-  const totalDay = Object.values(expenseBreakdown).reduce((sum, v) => sum + (v as { day: number }).day, 0);
-
-  // Calculate breakeven point (revenue needed to cover all costs: expenses + COGS)
-  const breakeven = totalExpenses + expenseBreakdown['Food (COGS)']?.year || 0;
-  const breakevenMonth = totalExpenses + expenseBreakdown['Food (COGS)']?.month || 0;
-  const breakevenWeek = totalExpenses + expenseBreakdown['Food (COGS)']?.week || 0;
-  const breakevenDay = totalExpenses + expenseBreakdown['Food (COGS)']?.day || 0;
-
-  // Add state for period selection
-  // const [profitPeriod, setProfitPeriod] = useState<'year' | 'month' | 'week' | 'day'>('month');
-
-  // Map period to breakeven value
-  const breakevenByPeriod = {
-    year: totalYear,
-    month: totalMonth,
-    week: totalWeek,
-    day: totalDay,
-  };
-
-  // Calculate revenue per period
-  // Helper functions to get period keys
-  const getDayKey = (date: Date) => date.toISOString().split('T')[0];
-  const getMonthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth() + 1}`;
-  const getYearKey = (date: Date) => `${date.getFullYear()}`;
-
-  // Group revenue by period
-  const revenueByDay: Record<string, number> = {};
-  const revenueByWeek: Record<string, number> = {};
-  const revenueByMonth: Record<string, number> = {};
-  const revenueByYear: Record<string, number> = {};
-
-  salesWithDates.forEach(sale => {
-    const saleRevenue = sale.salePrice * sale.quantity;
-    const dayKey = getDayKey(sale.date);
-    const weekKey = getWeekKey(sale.date);
-    const monthKey = getMonthKey(sale.date);
-    const yearKey = getYearKey(sale.date);
-    
-    revenueByDay[dayKey] = (revenueByDay[dayKey] || 0) + saleRevenue;
-    revenueByWeek[weekKey] = (revenueByWeek[weekKey] || 0) + saleRevenue;
-    revenueByMonth[monthKey] = (revenueByMonth[monthKey] || 0) + saleRevenue;
-    revenueByYear[yearKey] = (revenueByYear[yearKey] || 0) + saleRevenue;
-  });
-
-  // Calculate average revenue per period
-  const revenuePerDay = totalRevenue / 365; // Total revenue divided by total days in year
-  const revenuePerWeek = totalRevenue / 52; // Total revenue divided by total weeks in year
-  const revenuePerMonth = totalRevenue / 12; // Total revenue divided by total months in year
-  const revenuePerYear = totalRevenue; // Total revenue for the year
-
-  // Calculate profit per period
-  const profitPerDay = revenuePerDay - totalDay;
-  const profitPerWeek = revenuePerWeek - totalWeek;
-  const profitPerMonth = revenuePerMonth - totalMonth;
-  const profitPerYear = revenuePerYear - totalYear;
-
-  // Map period to profit value
-  const profitByPeriod = {
-    day: profitPerDay,
-    week: profitPerWeek,
-    month: profitPerMonth,
-    year: profitPerYear,
-  };
-
-  // Map period to revenue value
-  const revenueByPeriod = {
-    day: revenuePerDay,
-    week: revenuePerWeek,
-    month: revenuePerMonth,
-    year: revenuePerYear,
-  };
-
-  const profit = profitByPeriod[profitPeriod];
-
-  // Calculate averages
-  // Helper to get week, month, year keys
-
-  const cogsByMonth: Record<string, number> = {};
-  const cogsByYear: Record<string, number> = {};
-  salesWithDates.forEach(sale => {
-    const recipe = state.recipes.find(r => r.name === sale.recipeName);
-    if (!recipe) return;
-    let totalIngredientCost = 0;
-    recipe.ingredients.forEach(ingredient => {
-      const product = state.products.find(p => p.id === ingredient.productId);
-      if (!product) return;
-      let costPerUnit = getCostPerBaseUnit(product);
-      totalIngredientCost += (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0) * (Number(sale.quantity) || 0);
-    });
-    // Group by week, month, year
-    const weekKey = getWeekKey(sale.date);
-    const monthKey = getMonthKey(sale.date);
-    const yearKey = getYearKey(sale.date);
-    cogsByMonth[monthKey] = (cogsByMonth[monthKey] || 0) + totalIngredientCost;
-    cogsByYear[yearKey] = (cogsByYear[yearKey] || 0) + totalIngredientCost;
-  });
-  const avgDay = Object.keys(cogsByDay).length > 0 ? Object.values(cogsByDay).reduce((a, b) => a + b, 0) / Object.keys(cogsByDay).length : 0;
-  const avgMonth = Object.keys(cogsByMonth).length > 0 ? Object.values(cogsByMonth).reduce((a, b) => a + b, 0) / Object.keys(cogsByMonth).length : 0;
-  const avgYear = Object.keys(cogsByYear).length > 0 ? Object.values(cogsByYear).reduce((a, b) => a + b, 0) / Object.keys(cogsByYear).length : 0;
-
-  // Helper function for cost per base unit
-  function getCostPerBaseUnit(product: import('@/lib/types').Product) {
-    if ((product.unit === 'count' || product.unit === 'pieces' || product.unit === 'units') && product.unitsPerPackage) {
-      const totalUnits = (Number(product.quantity) || 0) * (Number(product.unitsPerPackage) || 0);
-      return totalUnits > 0 ? product.cost / totalUnits : 0;
-    } else {
-      const totalUnits = (Number(product.quantity) || 0) * (Number(product.packageSize) || 1);
-      return totalUnits > 0 ? product.cost / totalUnits : 0;
-    }
-  }
-
-  // Helper to get product cost as of a given date (copied from RecipeAnalytics)
-  function getProductCostOnDate(product: any, date: Date) {
-    if (!product.priceHistory || product.priceHistory.length === 0) return product.cost;
-    const sorted = [...product.priceHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    let cost = product.cost;
-    for (let i = 0; i < sorted.length; i++) {
-      if (new Date(sorted[i].date) <= date) {
-        cost = sorted[i].price;
-      } else {
-        break;
+  const fetchData = async () => {
+    try {
+      setRefreshing(true);
+      const response = await fetch('/api/profitability-analysis?restaurantId=default&includeRecommendations=true');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      const result = await response.json();
+      setData(result);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching profitability data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch data');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    return cost;
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const getProfitabilityColor = (status: string) => {
+    switch (status) {
+      case 'high': return 'text-green-600 bg-green-100';
+      case 'medium': return 'text-blue-600 bg-blue-100';
+      case 'low': return 'text-yellow-600 bg-yellow-100';
+      case 'unprofitable': return 'text-red-600 bg-red-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'text-red-600 bg-red-100';
+      case 'medium': return 'text-yellow-600 bg-yellow-100';
+      case 'low': return 'text-green-600 bg-green-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  const getRiskColor = (risk: string) => {
+    switch (risk) {
+      case 'high': return 'text-red-600 bg-red-100';
+      case 'medium': return 'text-yellow-600 bg-yellow-100';
+      case 'low': return 'text-green-600 bg-green-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Analyzing profitability...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert className="m-4">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+        <Button onClick={fetchData} className="mt-2" size="sm">
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Retry
+        </Button>
+      </Alert>
+    );
+  }
+
+  if (!data) {
+    return (
+      <Alert className="m-4">
+        <AlertTriangle className="h-4 w-4" />
+        <AlertTitle>No Data</AlertTitle>
+        <AlertDescription>No profitability data available.</AlertDescription>
+      </Alert>
+    );
   }
 
   return (
-    <div className="space-y-6 p-6 bg-white rounded-lg shadow">
-      <h2 className="text-2xl font-bold">Breakeven & Profitability Dashboard</h2>
-      {/* Period Selector */}
-      <div className="mb-4 flex items-center gap-4">
-        <label className="font-medium mr-2">Profit Period:</label>
-        <select
-          value={profitPeriod}
-          onChange={e => setProfitPeriod(e.target.value as 'year' | 'month' | 'week' | 'day')}
-          className="p-2 border rounded"
-        >
-          <option value="year">Year</option>
-          <option value="month">Month</option>
-          <option value="week">Week</option>
-          <option value="day">Day</option>
-        </select>
-        <div className="ml-6 flex items-center gap-2">
-          <label className="font-medium">Revenue Mode:</label>
-          <label className="inline-flex items-center">
-            <input
-              type="radio"
-              className="form-radio"
-              name="revenueMode"
-              value="total"
-              checked={revenueMode === 'total'}
-              onChange={() => setRevenueMode('total')}
-            />
-            <span className="ml-1">Total Revenue</span>
-          </label>
-          <label className="inline-flex items-center ml-4">
-            <input
-              type="radio"
-              className="form-radio"
-              name="revenueMode"
-              value="perPeriod"
-              checked={revenueMode === 'perPeriod'}
-              onChange={() => setRevenueMode('perPeriod')}
-            />
-            <span className="ml-1">Revenue Per {profitPeriod.charAt(0).toUpperCase() + profitPeriod.slice(1)}</span>
-          </label>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Profitability Analysis</h1>
+          <p className="text-gray-600">Real-time cost analysis and optimization recommendations</p>
         </div>
+        <Button onClick={fetchData} disabled={refreshing}>
+          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh Analysis
+        </Button>
       </div>
-      {/* Breakeven Breakdown Section */}
-      <div className="border-t pt-6 mb-8">
-        <h3 className="text-lg font-medium mb-4">Breakeven Breakdown</h3>
-        <div className="overflow-x-auto mb-4">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Per Year</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Per Month</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Per Week</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Per Day</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {Object.entries(expenseBreakdown)
-                .sort(([a], [b]) => {
-                  if (a === 'Food (COGS)') return -1;
-                  if (b === 'Food (COGS)') return 1;
-                  return a.localeCompare(b);
-                })
-                .map(([category, v]) => {
-                  const val = v as { year: number; month: number; week: number; day: number };
-                  const isCOGS = category === 'Food (COGS)';
-                  return (
-                    <tr key={category}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{category}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${val.year.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${val.month.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${val.week.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ${val.day.toFixed(2)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              <tr className="bg-gray-100 font-bold">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Total Breakeven</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${totalYear.toFixed(2)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${totalMonth.toFixed(2)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${totalWeek.toFixed(2)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${totalDay.toFixed(2)}</td>
-              </tr>
-            </tbody>
-          </table>
+
+      {/* Critical Alerts */}
+      {data.alerts.critical.length > 0 && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertTitle className="text-red-800">Critical Profitability Issues</AlertTitle>
+          <AlertDescription className="text-red-700">
+            {data.alerts.critical.length} recipe(s) are currently unprofitable and require immediate attention.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Recipes</CardTitle>
+            <ChefHat className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{data.summary.totalRecipes}</div>
+            <p className="text-xs text-muted-foreground">
+              {data.summary.profitableRecipes} profitable
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Average Profit Margin</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {((data.summary.averageProfitMargin || 0) * 100).toFixed(1)}%
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {data.summary.averageProfitMargin >= 0.25 ? 'Healthy' : 'Needs improvement'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Potential Savings</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              ${(data.summary.totalPotentialSavings || 0).toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Through recommended optimizations
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {data.alerts.critical.length}
         </div>
-        <div className="text-sm text-gray-600">This is the minimum revenue you need to break even, including all fixed and variable (food/COGS) expenses, based on your actual sales and expense records.</div>
+            <p className="text-xs text-muted-foreground">
+              {data.alerts.warning.length} warnings
+            </p>
+          </CardContent>
+        </Card>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <p className="text-sm font-medium text-gray-500">Total Expenses</p>
-          <p className="text-2xl font-bold text-gray-900">${totalExpenses.toFixed(2)}</p>
+
+      {/* Main Content Tabs */}
+      <Tabs defaultValue="analysis" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="analysis">Recipe Analysis</TabsTrigger>
+          <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+          <TabsTrigger value="menu-optimization">Menu Optimization</TabsTrigger>
+          <TabsTrigger value="alerts">Alerts</TabsTrigger>
+        </TabsList>
+
+        {/* Recipe Analysis Tab */}
+        <TabsContent value="analysis" className="space-y-4">
+          <div className="grid gap-4">
+            {data.analyses.map((analysis) => (
+              <Card key={analysis.recipeId}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{analysis.recipeName}</CardTitle>
+                      <CardDescription>
+                        Last updated: {new Date(analysis.lastUpdated).toLocaleString()}
+                      </CardDescription>
+                    </div>
+                    <Badge className={getProfitabilityColor(analysis.profitabilityStatus)}>
+                      {analysis.profitabilityStatus.toUpperCase()}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Cost Breakdown */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Cost per Serving</div>
+                      <div className="text-xl font-bold">${(analysis.currentCostPerServing || 0).toFixed(2)}</div>
         </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <p className="text-sm font-medium text-gray-500">{revenueMode === 'total' ? 'Total Revenue' : `Revenue Per ${profitPeriod.charAt(0).toUpperCase() + profitPeriod.slice(1)}`}</p>
-          <p className="text-2xl font-bold text-gray-900">
-            {revenueMode === 'total'
-              ? `$${totalRevenue.toFixed(2)}`
-              : `$${revenueByPeriod[profitPeriod].toFixed(2)}`}
-          </p>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Sale Price</div>
+                      <div className="text-xl font-bold">${(analysis.salePrice || 0).toFixed(2)}</div>
         </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <p className="text-sm font-medium text-gray-500">Breakeven ({profitPeriod.charAt(0).toUpperCase() + profitPeriod.slice(1)})</p>
-          <p className="text-2xl font-bold text-gray-900">${breakevenByPeriod[profitPeriod].toFixed(2)}</p>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Profit Margin</div>
+                      <div className={`text-xl font-bold ${analysis.isProfitable ? 'text-green-600' : 'text-red-600'}`}>
+                        {((analysis.profitMarginPercentage || 0) * 100).toFixed(1)}%
         </div>
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <p className="text-sm font-medium text-gray-500">Profit</p>
-          <p className="text-2xl font-bold text-green-600">{profit >= 0 ? `+$${profit.toFixed(2)}` : `-$${Math.abs(profit).toFixed(2)}`}</p>
         </div>
       </div>
 
-      <div className="border-t pt-6">
-        <h3 className="text-lg font-medium mb-4">Menu Item Profitability</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Menu Item</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margin</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margin %</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {recipeMargins.map(({ recipe, revenue, totalCost, margin, marginPercent }) => (
-                <React.Fragment key={recipe.id}>
-                  <tr key={recipe.id} className={margin < 0 ? 'bg-red-50' : marginPercent < 20 ? 'bg-yellow-50' : ''}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{recipe.name}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${revenue.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${totalCost.toFixed(2)}</td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${margin < 0 ? 'text-red-600' : 'text-gray-900'}`}>{margin >= 0 ? '+' : ''}${margin.toFixed(2)}</td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${marginPercent < 20 ? 'text-yellow-700' : 'text-gray-900'}`}>{marginPercent.toFixed(1)}%</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => toggleExpanded(recipe.id)}
-                        className="text-indigo-600 hover:text-indigo-900"
-                      >
-                        {expandedRecipeId === recipe.id ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Button variant="ghost" size="sm" onClick={() => handleEditRecipe(recipe)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteRecipe(recipe.id)}>
-                        <Trash className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  </tr>
-                  {expandedRecipeId === recipe.id && (
-                    <tr>
-                      <td colSpan={7} className="p-4 bg-gray-50">
-                        <h4 className="font-semibold mb-2">Ingredient Breakdown for {recipe.name}</h4>
-                        {/* Per Serving Breakdown */}
-                        <div className="mb-2">
-                          <div className="font-semibold">Per Serving:</div>
-                          <ul className="list-disc list-inside">
-                            {recipe.ingredients.map(ingredient => {
-                              const product = state.products.find(p => p.id === ingredient.productId);
-                              if (!product) return null;
-                              // Use current price for per-serving and per-batch breakdowns (not historical)
-                              let costPerUnit = getCostPerBaseUnit(product);
-                              const ingredientCost = (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0);
-                              return (
-                                <li key={ingredient.productId}>
-                                  {product.name}: {ingredient.quantity} {product.unit} @ ${costPerUnit.toFixed(3)}/{product.unit} = ${ingredientCost.toFixed(2)}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                          <div className="font-bold mt-2">
-                            Total Per Serving Cost: ${recipe.ingredients.reduce((sum, ingredient) => {
-                              const product = state.products.find(p => p.id === ingredient.productId);
-                              if (!product) return sum;
-                              let costPerUnit = getCostPerBaseUnit(product);
-                              return sum + (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0);
-                            }, 0).toFixed(2)}
+                  {/* Ingredient Cost Breakdown */}
+                  <div>
+                    <h4 className="font-medium mb-2">Ingredient Cost Breakdown</h4>
+                    <div className="space-y-2">
+                      {analysis.costBreakdown.map((ingredient) => (
+                        <div key={ingredient.productId} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-medium">{ingredient.productName}</span>
+                            <span className="text-sm text-gray-600">
+                              {ingredient.quantity} {ingredient.unit}
+                            </span>
+                            {ingredient.isPriceVolatile && (
+                              <Badge variant="outline" className="text-orange-600 border-orange-300">
+                                Volatile
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium">${(ingredient.costPerServing || 0).toFixed(2)}</div>
+                            {ingredient.priceChangePercentage && (
+                              <div className={`text-xs flex items-center ${
+                                ingredient.priceChangePercentage > 0 ? 'text-red-600' : 'text-green-600'
+                              }`}>
+                                {ingredient.priceChangePercentage > 0 ? (
+                                  <TrendingUp className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <TrendingDown className="h-3 w-3 mr-1" />
+                                )}
+                                {(Math.abs(ingredient.priceChangePercentage || 0) * 100).toFixed(1)}%
+                              </div>
+                            )}
                           </div>
                         </div>
-                        {/* Per Batch Breakdown */}
-                        <div className="mb-2">
-                          <div className="font-semibold">Per Batch (All {recipe.servings} servings):</div>
-                          <ul className="list-disc list-inside">
-                            {recipe.ingredients.map(ingredient => {
-                              const product = state.products.find(p => p.id === ingredient.productId);
-                              if (!product) return null;
-                              let costPerUnit = getCostPerBaseUnit(product);
-                              const ingredientCost = (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0) * (Number(recipe.servings) || 0);
-                              return (
-                                <li key={ingredient.productId}>
-                                  {product.name}: {(Number(ingredient.quantity) || 0) * (Number(recipe.servings) || 0)} {product.unit} @ ${(Number(costPerUnit) || 0).toFixed(3)}/{product.unit} = ${ingredientCost.toFixed(2)}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                          <div className="font-bold mt-2">
-                            Total Batch Cost: ${recipe.ingredients.reduce((sum, ingredient) => {
-                              const product = state.products.find(p => p.id === ingredient.productId);
-                              if (!product) return sum;
-                              let costPerUnit = getCostPerBaseUnit(product);
-                              return sum + (Number(ingredient.quantity) || 0) * (Number(costPerUnit) || 0) * (Number(recipe.servings) || 0);
-                            }, 0).toFixed(2)}
-                          </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* Recommendations Tab */}
+        <TabsContent value="recommendations" className="space-y-4">
+          <div className="grid gap-4">
+            {/* Top Cost Reductions */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Target className="h-5 w-5 mr-2" />
+                  Top Cost Reduction Opportunities
+                </CardTitle>
+                <CardDescription>
+                  Highest impact ingredient substitutions and optimizations
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {data.recommendations.topCostReductions.map((rec, index) => (
+                  <div key={index} className="p-4 border rounded-lg">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium">{rec.title}</h4>
+                        <p className="text-sm text-gray-600">{rec.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <Badge className={getPriorityColor(rec.priority)}>
+                          {rec.priority.toUpperCase()}
+                        </Badge>
+                        <div className="text-sm font-medium text-green-600">
+                          Save ${(rec.potentialSavings || 0).toFixed(2)}
                         </div>
-                        {/* For Number Sold Breakdown */}
-                        <div>
-                          <div className="font-semibold">For Number Sold ({state.sales.filter(s => s.recipeName === recipe.name).reduce((sum, s) => sum + (Number(s.quantity) || 0), 0)} sold):</div>
-                          <ul className="list-disc list-inside">
-                            {recipe.ingredients.map(ingredient => {
-                              const product = state.products.find(p => p.id === ingredient.productId);
-                              if (!product) return null;
-                              // For number sold, use historical price for each sale
-                              const numSold = state.sales.filter(s => s.recipeName === recipe.name).reduce((sum, s) => sum + (Number(s.quantity) || 0), 0);
-                              // Use average historical cost per unit for all sales
-                              let totalIngredientCost = 0;
-                              state.sales.filter(s => s.recipeName === recipe.name).forEach(sale => {
-                                const saleDate = new Date(sale.date);
-                                const productCost = getProductCostOnDate(product, saleDate);
-                                const totalUnits = (Number(product.quantity) || 0) * (Number(product.packageSize) || 1);
-                                const unitCost = totalUnits > 0 ? productCost / totalUnits : 0;
-                                totalIngredientCost += (Number(unitCost) || 0) * (Number(ingredient.quantity) || 0) * (Number(sale.quantity) || 0);
-                              });
-                              return (
-                                <li key={ingredient.productId}>
-                                  {product.name}: {(Number(ingredient.quantity) || 0) * (Number(numSold) || 0)} {product.unit} (historical avg) = ${totalIngredientCost.toFixed(2)}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                          <div className="font-bold mt-2">
-                            Total Cost for Number Sold: ${recipe.ingredients.reduce((sum, ingredient) => {
-                              const product = state.products.find(p => p.id === ingredient.productId);
-                              if (!product) return sum;
-                              let totalIngredientCost = 0;
-                              state.sales.filter(s => s.recipeName === recipe.name).forEach(sale => {
-                                const saleDate = new Date(sale.date);
-                                const productCost = getProductCostOnDate(product, saleDate);
-                                const totalUnits = (Number(product.quantity) || 0) * (Number(product.packageSize) || 1);
-                                const unitCost = totalUnits > 0 ? productCost / totalUnits : 0;
-                                totalIngredientCost += (Number(unitCost) || 0) * (Number(ingredient.quantity) || 0) * (Number(sale.quantity) || 0);
-                              });
-                              return sum + totalIngredientCost;
-                            }, 0).toFixed(2)}
-                          </div>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <strong>Implementation:</strong> {rec.implementation.estimatedTime} • 
+                      <Badge variant="outline" className={`ml-2 ${getRiskColor(rec.implementation.riskLevel)}`}>
+                        {rec.implementation.riskLevel} risk
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* Price Adjustments */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <DollarSign className="h-5 w-5 mr-2" />
+                  Price Adjustment Recommendations
+                </CardTitle>
+                <CardDescription>
+                  Menu pricing optimizations to improve profitability
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {data.recommendations.priceAdjustments.map((rec, index) => (
+                  <div key={index} className="p-4 border rounded-lg">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium">{rec.title}</h4>
+                        <p className="text-sm text-gray-600">{rec.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <Badge className={getPriorityColor(rec.priority)}>
+                          {rec.priority.toUpperCase()}
+                        </Badge>
+                        <div className="text-sm font-medium text-blue-600">
+                          +{(rec.potentialProfitImprovement || 0).toFixed(1)}% margin
                         </div>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <strong>Implementation:</strong> {rec.implementation.estimatedTime} • 
+                      <Badge variant="outline" className={`ml-2 ${getRiskColor(rec.implementation.riskLevel)}`}>
+                        {rec.implementation.riskLevel} risk
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Menu Optimization Tab */}
+        <TabsContent value="menu-optimization" className="space-y-4">
+          <div className="grid gap-4">
+            {data.menuSuggestions.map((suggestion, index) => (
+              <Card key={index}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{suggestion.name}</CardTitle>
+                      <CardDescription>{suggestion.description}</CardDescription>
+                    </div>
+                    <Badge className="text-blue-600 bg-blue-100">
+                      {suggestion.type.replace('_', ' ').toUpperCase()}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Est. Cost</div>
+                      <div className="text-xl font-bold">${(suggestion.estimatedCostPerServing || 0).toFixed(2)}</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Suggested Price</div>
+                      <div className="text-xl font-bold">${(suggestion.suggestedPrice || 0).toFixed(2)}</div>
+                    </div>
+                    <div className="text-center p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600">Est. Profit Margin</div>
+                      <div className="text-xl font-bold text-green-600">
+                        {((suggestion.estimatedProfitMargin || 0) * 100).toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-2">Key Ingredients</h4>
+                    <div className="space-y-1">
+                      {suggestion.ingredients.map((ingredient) => (
+                        <div key={ingredient.productId} className="flex justify-between text-sm">
+                          <span>{ingredient.name}</span>
+                          <span>${(ingredient.currentPrice || 0).toFixed(2)}/{ingredient.unit}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {suggestion.seasonalFactors && (
+                    <div>
+                      <h4 className="font-medium mb-2">Seasonal Factors</h4>
+                      <div className="space-y-1">
+                        {suggestion.seasonalFactors.map((factor, idx) => (
+                          <div key={idx} className="text-sm">
+                            <span className="font-medium">{factor.ingredient}:</span> {factor.priceTrend} price trend
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* Alerts Tab */}
+        <TabsContent value="alerts" className="space-y-4">
+          <div className="space-y-4">
+            {/* Critical Alerts */}
+            {data.alerts.critical.length > 0 && (
+              <Card className="border-red-200">
+                <CardHeader>
+                  <CardTitle className="text-red-800 flex items-center">
+                    <AlertTriangle className="h-5 w-5 mr-2" />
+                    Critical Issues ({data.alerts.critical.length})
+                  </CardTitle>
+                  <CardDescription className="text-red-700">
+                    These recipes are currently unprofitable and require immediate attention
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {data.alerts.critical.map((analysis) => (
+                    <div key={analysis.recipeId} className="p-3 bg-red-50 border border-red-200 rounded">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-red-800">{analysis.recipeName}</h4>
+                          <p className="text-sm text-red-600">
+                            Losing ${Math.abs(analysis.profitMargin || 0).toFixed(2)} per serving
+                          </p>
+                        </div>
+                        <Badge className="text-red-600 bg-red-100">
+                          {((analysis.profitMarginPercentage || 0) * 100).toFixed(1)}% LOSS
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Warning Alerts */}
+            {data.alerts.warning.length > 0 && (
+              <Card className="border-yellow-200">
+                <CardHeader>
+                  <CardTitle className="text-yellow-800 flex items-center">
+                    <AlertTriangle className="h-5 w-5 mr-2" />
+                    Low Profitability Warnings ({data.alerts.warning.length})
+                  </CardTitle>
+                  <CardDescription className="text-yellow-700">
+                    These recipes have low profit margins and should be optimized
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {data.alerts.warning.map((analysis) => (
+                    <div key={analysis.recipeId} className="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-yellow-800">{analysis.recipeName}</h4>
+                          <p className="text-sm text-yellow-600">
+                            Only ${(analysis.profitMargin || 0).toFixed(2)} profit per serving
+                          </p>
+                        </div>
+                        <Badge className="text-yellow-600 bg-yellow-100">
+                          {((analysis.profitMarginPercentage || 0) * 100).toFixed(1)}% MARGIN
+                        </Badge>
+                      </div>
+                          </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Info Alerts */}
+            {data.alerts.info.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Lightbulb className="h-5 w-5 mr-2" />
+                    Optimization Opportunities ({data.alerts.info.length})
+                  </CardTitle>
+                  <CardDescription>
+                    These recipes have good profitability but could be further optimized
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {data.alerts.info.map((analysis) => (
+                    <div key={analysis.recipeId} className="p-3 bg-blue-50 border border-blue-200 rounded">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-blue-800">{analysis.recipeName}</h4>
+                          <p className="text-sm text-blue-600">
+                            ${(analysis.profitMargin || 0).toFixed(2)} profit per serving
+                          </p>
+                        </div>
+                        <Badge className="text-blue-600 bg-blue-100">
+                          {((analysis.profitMarginPercentage || 0) * 100).toFixed(1)}% MARGIN
+                        </Badge>
         </div>
       </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 } 

@@ -2,15 +2,9 @@ import type React from "react"
 import "./globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { SidebarProvider } from "@/components/ui/sidebar"
-import { AppSidebar } from "@/components/app-sidebar"
-import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
 import { RestaurantProvider } from "@/contexts/restaurant-context"
 import { CostManagementProvider } from '@/contexts/CostManagementContext';
-import { RestaurantIndicator } from '@/components/RestaurantIndicator';
-import { GlobalAlertBanner } from '@/components/GlobalAlertBanner';
 import { AlertBannerProvider } from '@/contexts/AlertBannerContext';
-import { DynamicLayout } from '@/components/DynamicLayout';
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -35,23 +29,8 @@ export default function RootLayout({
         <RestaurantProvider>
           <CostManagementProvider>
             <AlertBannerProvider>
-              <SidebarProvider>
-                <AppSidebar />
-              <SidebarInset className="relative">
-                <GlobalAlertBanner />
-                <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sm:px-6">
-                  <SidebarTrigger className="-ml-1" />
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-lg sm:text-xl font-semibold">Flavor Pulse</h1>
-                  </div>
-                </header>
-                <DynamicLayout>
-                  <RestaurantIndicator />
-                  {children}
-                </DynamicLayout>
-              </SidebarInset>
-            </SidebarProvider>
-          </AlertBannerProvider>
+              {children}
+            </AlertBannerProvider>
           </CostManagementProvider>
         </RestaurantProvider>
       </body>

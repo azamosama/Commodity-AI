@@ -1,809 +1,929 @@
-import { Product, Recipe, RecipeIngredient, SubstitutionSuggestion, IngredientAvailability, InventoryItem } from './types';
-import { ProductDataAPI, RealProductData } from './product-data-api';
+import { Product, Recipe, RecipeIngredient } from './types';
+import { USDAPriceAPI } from './usda-price-api';
 
-// Cache for real product data to avoid repeated API calls
-const productDataCache = new Map<string, { data: RealProductData; timestamp: number }>();
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
-
-// Universal substitution database with realistic prices and comprehensive rules
-const UNIVERSAL_SUBSTITUTIONS: Record<string, Array<{
-  substituteName: string;
-  reason: 'availability' | 'cost' | 'nutritional' | 'allergen' | 'flavor' | 'quantity';
-  confidence: number;
-  costDifference: number; // Cost difference per unit (positive = more expensive, negative = cheaper)
-  quantityAdjustment: number; // How much to use (1.0 = same amount, 0.8 = 80% of original)
-  notes: string;
-  impact: {
-    taste: 'better' | 'similar' | 'worse' | 'different';
-    texture: 'better' | 'similar' | 'worse' | 'different';
-    nutrition: 'better' | 'similar' | 'worse' | 'different';
-    cost: 'better' | 'similar' | 'worse' | 'different';
+export interface SubstitutionSuggestion {
+  originalIngredient: {
+    productId: string;
+    name: string;
+    currentPrice: number;
+    costPerServing: number;
   };
-  category: string; // For grouping similar ingredients
-}>> = {
-  // Chocolate and cocoa products
-  'chocolate': [
-    {
-      substituteName: 'Cocoa Powder',
-      reason: 'availability',
-      confidence: 0.90,
-      costDifference: -7.00, // Cocoa powder is much cheaper per lb
-      quantityAdjustment: 0.4, // Use 40% of original amount (cocoa is more concentrated)
-      notes: 'Cocoa powder provides chocolate flavor at a fraction of the cost. Use 40% of original amount.',
-      impact: { taste: 'similar', texture: 'different', nutrition: 'better', cost: 'better' },
-      category: 'chocolate'
-    },
-    {
-      substituteName: 'Carob Powder',
-      reason: 'availability',
-      confidence: 0.85,
-      costDifference: -6.00, // Carob is cheaper than chocolate
-      quantityAdjustment: 1.0, // Use same amount
-      notes: 'Carob powder is naturally sweet and caffeine-free. Good for those with chocolate allergies.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'better', cost: 'better' },
-      category: 'chocolate'
-    },
-    {
-      substituteName: 'Dark Chocolate',
-      reason: 'cost',
-      confidence: 0.95,
-      costDifference: 3.00, // Dark chocolate is more expensive
-      quantityAdjustment: 0.8, // Use 80% (more intense flavor)
-      notes: 'Dark chocolate provides richer flavor with less sugar.',
-      impact: { taste: 'better', texture: 'similar', nutrition: 'better', cost: 'worse' },
-      category: 'chocolate'
-    }
-  ],
-  'dark chocolate': [
-    {
-      substituteName: 'Chocolate',
-      reason: 'cost',
-      confidence: 0.90,
-      costDifference: -3.00, // Regular chocolate is cheaper
-      quantityAdjustment: 1.2, // Use 20% more for similar intensity
-      notes: 'Regular chocolate is more affordable while maintaining good flavor.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'similar', cost: 'better' },
-      category: 'chocolate'
-    },
-    {
-      substituteName: 'Cocoa Powder',
-      reason: 'cost',
-      confidence: 0.85,
-      costDifference: -10.00, // Much cheaper
-      quantityAdjustment: 0.5, // Use 50% (more concentrated)
-      notes: 'Cocoa powder provides intense chocolate flavor at much lower cost.',
-      impact: { taste: 'similar', texture: 'different', nutrition: 'better', cost: 'better' },
-      category: 'chocolate'
-    }
-  ],
-  'cocoa powder': [
-    {
-      substituteName: 'Chocolate',
-      reason: 'availability',
-      confidence: 0.85,
-      costDifference: 7.00, // Chocolate is more expensive
-      quantityAdjustment: 2.5, // Use 2.5x more (chocolate is less concentrated)
-      notes: 'Chocolate provides similar flavor but requires more quantity.',
-      impact: { taste: 'similar', texture: 'better', nutrition: 'similar', cost: 'worse' },
-      category: 'chocolate'
-    }
-  ],
-
-  // Dairy products
-  'milk': [
-    {
-      substituteName: 'Almond Milk',
-      reason: 'allergen',
-      confidence: 0.95,
-      costDifference: 1.00, // Slightly more expensive
-      quantityAdjustment: 1.0, // Same amount
-      notes: 'Almond milk is dairy-free and suitable for lactose intolerance.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'better', cost: 'worse' },
-      category: 'dairy'
-    },
-    {
-      substituteName: 'Oat Milk',
-      reason: 'allergen',
-      confidence: 0.90,
-      costDifference: 0.50, // Slightly more expensive
-      quantityAdjustment: 1.0, // Same amount
-      notes: 'Oat milk is creamy and works well in most recipes.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'similar', cost: 'worse' },
-      category: 'dairy'
-    },
-    {
-      substituteName: 'Soy Milk',
-      reason: 'allergen',
-      confidence: 0.85,
-      costDifference: 0.25, // Slightly more expensive
-      quantityAdjustment: 1.0, // Same amount
-      notes: 'Soy milk is high in protein and dairy-free.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'better', cost: 'worse' },
-      category: 'dairy'
-    }
-  ],
-  'butter': [
-    {
-      substituteName: 'Olive Oil',
-      reason: 'nutritional',
-      confidence: 0.80,
-      costDifference: -2.00, // Olive oil is cheaper
-      quantityAdjustment: 0.75, // Use 75% (oil is more concentrated)
-      notes: 'Olive oil provides healthy fats and works well in many recipes.',
-      impact: { taste: 'different', texture: 'different', nutrition: 'better', cost: 'better' },
-      category: 'fats'
-    },
-    {
-      substituteName: 'Coconut Oil',
-      reason: 'nutritional',
-      confidence: 0.75,
-      costDifference: 1.00, // Slightly more expensive
-      quantityAdjustment: 0.8, // Use 80%
-      notes: 'Coconut oil adds a subtle tropical flavor.',
-      impact: { taste: 'different', texture: 'similar', nutrition: 'better', cost: 'worse' },
-      category: 'fats'
-    }
-  ],
-
-  // Berries and fruits
-  'blueberries': [
-    {
-      substituteName: 'Strawberries',
-      reason: 'availability',
-      confidence: 0.95,
-      costDifference: 0.50, // Strawberries are slightly more expensive
-      quantityAdjustment: 1.0, // Same amount
-      notes: 'Strawberries provide similar sweetness and texture.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'similar', cost: 'worse' },
-      category: 'berries'
-    },
-    {
-      substituteName: 'Raspberries',
-      reason: 'availability',
-      confidence: 0.90,
-      costDifference: -0.20, // Raspberries are slightly cheaper
-      quantityAdjustment: 1.0, // Same amount
-      notes: 'Raspberries offer similar tartness and color.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'similar', cost: 'better' },
-      category: 'berries'
-    },
-    {
-      substituteName: 'Blackberries',
-      reason: 'availability',
-      confidence: 0.85,
-      costDifference: 0.30, // Blackberries are slightly more expensive
-      quantityAdjustment: 1.0, // Same amount
-      notes: 'Blackberries provide similar flavor profile.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'similar', cost: 'worse' },
-      category: 'berries'
-    }
-  ],
-  'strawberries': [
-    {
-      substituteName: 'Raspberries',
-      reason: 'availability',
-      confidence: 0.90,
-      costDifference: -0.70, // Raspberries are cheaper
-      quantityAdjustment: 1.0, // Same amount
-      notes: 'Raspberries provide similar sweetness and texture.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'similar', cost: 'better' },
-      category: 'berries'
-    }
-  ],
-
-  // Vanilla and flavorings
-  'vanilla extract': [
-    {
-      substituteName: 'Vanilla Bean',
-      reason: 'cost',
-      confidence: 0.85,
-      costDifference: 8.00, // Vanilla beans are much more expensive
-      quantityAdjustment: 0.1, // Use 10% (much more concentrated)
-      notes: 'Vanilla beans provide superior flavor but are expensive.',
-      impact: { taste: 'better', texture: 'similar', nutrition: 'similar', cost: 'worse' },
-      category: 'flavorings'
-    },
-    {
-      substituteName: 'Vanilla Paste',
-      reason: 'availability',
-      confidence: 0.90,
-      costDifference: 2.00, // Slightly more expensive
-      quantityAdjustment: 0.8, // Use 80%
-      notes: 'Vanilla paste includes vanilla bean specks for visual appeal.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'similar', cost: 'worse' },
-      category: 'flavorings'
-    }
-  ],
-  'premium vanilla extract': [
-    {
-      substituteName: 'Vanilla Extract',
-      reason: 'cost',
-      confidence: 0.95,
-      costDifference: -8.00, // Regular vanilla is much cheaper
-      quantityAdjustment: 1.0, // Same amount
-      notes: 'Regular vanilla extract provides similar flavor at a fraction of the cost.',
-      impact: { taste: 'similar', texture: 'similar', nutrition: 'similar', cost: 'better' },
-      category: 'flavorings'
-    }
-  ],
-
-  // Eggs
-  'eggs': [
-    {
-      substituteName: 'Flax Seeds',
-      reason: 'allergen',
-      confidence: 0.80,
-      costDifference: -1.00, // Flax seeds are cheaper
-      quantityAdjustment: 0.25, // Use 25% (1 tbsp ground flax + 3 tbsp water per egg)
-      notes: 'Mix 1 tbsp ground flax seeds with 3 tbsp water per egg. Let sit 5 minutes.',
-      impact: { taste: 'similar', texture: 'different', nutrition: 'better', cost: 'better' },
-      category: 'binders'
-    },
-    {
-      substituteName: 'Chia Seeds',
-      reason: 'allergen',
-      confidence: 0.75,
-      costDifference: 0.50, // Slightly more expensive
-      quantityAdjustment: 0.25, // Use 25% (1 tbsp chia + 3 tbsp water per egg)
-      notes: 'Mix 1 tbsp chia seeds with 3 tbsp water per egg. Let sit 10 minutes.',
-      impact: { taste: 'similar', texture: 'different', nutrition: 'better', cost: 'worse' },
-      category: 'binders'
-    }
-  ],
-
-  // Flour
-  'all-purpose flour': [
-    {
-      substituteName: 'Whole Wheat Flour',
-      reason: 'nutritional',
-      confidence: 0.85,
-      costDifference: 0.50, // Slightly more expensive
-      quantityAdjustment: 1.0, // Same amount
-      notes: 'Whole wheat flour adds fiber and nutrients.',
-      impact: { taste: 'different', texture: 'different', nutrition: 'better', cost: 'worse' },
-      category: 'flour'
-    },
-    {
-      substituteName: 'Gluten-Free Flour',
-      reason: 'allergen',
-      confidence: 0.90,
-      costDifference: 2.00, // More expensive
-      quantityAdjustment: 1.0, // Same amount
-      notes: 'Gluten-free flour blend for those with celiac disease.',
-      impact: { taste: 'similar', texture: 'different', nutrition: 'similar', cost: 'worse' },
-      category: 'flour'
-    }
-  ],
-
-  // Sugar
-  'sugar': [
-    {
-      substituteName: 'Honey',
-      reason: 'nutritional',
-      confidence: 0.80,
-      costDifference: 3.00, // Honey is more expensive
-      quantityAdjustment: 0.75, // Use 75% (honey is sweeter)
-      notes: 'Honey adds natural sweetness and flavor.',
-      impact: { taste: 'better', texture: 'different', nutrition: 'better', cost: 'worse' },
-      category: 'sweeteners'
-    },
-    {
-      substituteName: 'Maple Syrup',
-      reason: 'nutritional',
-      confidence: 0.75,
-      costDifference: 4.00, // Maple syrup is more expensive
-      quantityAdjustment: 0.75, // Use 75%
-      notes: 'Maple syrup provides rich, natural sweetness.',
-      impact: { taste: 'better', texture: 'different', nutrition: 'better', cost: 'worse' },
-      category: 'sweeteners'
-    }
-  ]
-};
-
-// Mock inventory data for availability scenarios
-const MOCK_INVENTORY_STATUS: Record<string, { isAvailable: boolean; currentStock: number; reorderPoint: number }> = {
-  'blueberries-1': { isAvailable: false, currentStock: 0, reorderPoint: 2 },
-  'dark-chocolate-1': { isAvailable: true, currentStock: 0.1, reorderPoint: 1 },
-  'strawberries-1': { isAvailable: true, currentStock: 5, reorderPoint: 2 },
-  'raspberries-1': { isAvailable: true, currentStock: 3, reorderPoint: 1 },
-  'milk-1': { isAvailable: true, currentStock: 10, reorderPoint: 2 },
-  'almond-milk-1': { isAvailable: true, currentStock: 8, reorderPoint: 2 },
-  // Add availability scenarios for common ingredients
-  'chocolate-1': { isAvailable: false, currentStock: 0, reorderPoint: 1 }, // Out of stock
-  'bananas-1': { isAvailable: true, currentStock: 2, reorderPoint: 1 },
-  'crepe-batter-1': { isAvailable: true, currentStock: 5, reorderPoint: 2 }
-};
-
-// Legacy substitution rules (kept for backward compatibility)
-const SUBSTITUTION_RULES: Record<string, Array<{
-  substituteId: string;
-  substituteName: string;
-  reason: 'availability' | 'cost' | 'nutritional' | 'allergen' | 'flavor' | 'quantity';
-  confidence: number;
-  costDifference: number;
-  quantityAdjustment: number;
-  notes: string;
-  impact: {
-    taste: 'better' | 'similar' | 'worse' | 'different';
-    texture: 'better' | 'similar' | 'worse' | 'different';
-    nutrition: 'better' | 'similar' | 'worse' | 'different';
-    cost: 'better' | 'similar' | 'worse' | 'different';
+  suggestedSubstitute: {
+    productId: string;
+    name: string;
+    currentPrice: number;
+    costPerServing: number;
+    substitutionRatio: number; // How much substitute to use vs original
   };
-}>> = {
-  // This is now deprecated in favor of UNIVERSAL_SUBSTITUTIONS
-};
+  savings: {
+    costReduction: number;
+    percentageReduction: number;
+    annualSavings?: number; // If we have sales data
+  };
+  compatibility: {
+    score: number; // 0-100 compatibility score
+    factors: {
+      flavorMatch: number;
+      textureMatch: number;
+      nutritionalMatch: number;
+      allergenCompatibility: number;
+    };
+  };
+  implementation: {
+    difficulty: 'easy' | 'medium' | 'hard';
+    timeToImplement: string;
+    testingRequired: boolean;
+    staffTrainingNeeded: boolean;
+  };
+  risks: {
+    customerAcceptance: 'low' | 'medium' | 'high';
+    supplyReliability: 'low' | 'medium' | 'high';
+    qualityConsistency: 'low' | 'medium' | 'high';
+  };
+}
 
-// Flavor profile matching
-const FLAVOR_PROFILES = {
-  'sweet': ['honey', 'maple syrup', 'agave nectar', 'stevia', 'sugar'],
-  'savory': ['salt', 'garlic', 'onion', 'herbs', 'spices'],
-  'spicy': ['chili peppers', 'cayenne', 'paprika', 'black pepper'],
-  'creamy': ['milk', 'cream', 'yogurt', 'coconut milk', 'cashew cream'],
-  'nutty': ['almonds', 'walnuts', 'pecans', 'cashews', 'peanuts'],
-  'citrusy': ['lemon', 'lime', 'orange', 'grapefruit'],
-  'herbal': ['basil', 'oregano', 'thyme', 'rosemary', 'sage']
-};
+export interface RecipeOptimization {
+  recipeId: string;
+  recipeName: string;
+  currentCostPerServing: number;
+  optimizedCostPerServing: number;
+  totalSavings: number;
+  substitutions: SubstitutionSuggestion[];
+  implementation: {
+    totalTimeToImplement: string;
+    riskLevel: 'low' | 'medium' | 'high';
+    testingPhases: number;
+  };
+}
 
-export function getSubstitutionSuggestions(recipe: Recipe, products: Product[]): SubstitutionSuggestion[] {
-  const suggestions: SubstitutionSuggestion[] = [];
+export interface GeneratedMenuItem {
+  id: string;
+  name: string;
+  description: string;
+  category: 'appetizer' | 'main' | 'dessert' | 'beverage' | 'side';
+  ingredients: {
+    productId: string;
+    productName: string;
+    quantity: number;
+    unit: string;
+    costPerUnit: number;
+    totalCost: number;
+  }[];
+  estimatedCostPerServing: number;
+  suggestedPrice: number;
+  estimatedProfitMargin: number;
+  flavorProfile: string[];
+  nutritionalHighlights: string[];
+  preparationTime: number; // minutes
+  difficulty: 'easy' | 'medium' | 'hard';
+  seasonalAvailability: string[];
+  inspiration: string; // What inspired this menu item
+  tags: string[];
+}
 
-  recipe.ingredients.forEach(ingredient => {
-    const product = products.find(p => p.id === ingredient.productId);
-    if (!product) return;
-
-    // Convert string quantity to number for calculations
-    const quantity = typeof ingredient.quantity === 'string' ? parseFloat(ingredient.quantity) || 0 : ingredient.quantity;
-    
-    // Check availability
-    const inventoryStatus = MOCK_INVENTORY_STATUS[ingredient.productId];
-    if (inventoryStatus && !inventoryStatus.isAvailable) {
-      // Add availability-based suggestions
-      const availabilityRules = SUBSTITUTION_RULES[ingredient.productId]?.filter(rule => rule.reason === 'availability') || [];
-      availabilityRules.forEach(rule => {
-        const substituteProduct = products.find(p => p.id === rule.substituteId);
-        if (substituteProduct) {
-          suggestions.push({
-            originalProductId: ingredient.productId,
-            originalProductName: product.name,
-            suggestedProductId: rule.substituteId,
-            suggestedProductName: rule.substituteName,
-            reason: 'availability',
-            confidence: rule.confidence,
-            costDifference: rule.costDifference,
-            quantityAdjustment: rule.quantityAdjustment,
-            notes: rule.notes,
-            impact: rule.impact
-          });
-        }
-      });
-    }
-
-    // Check cost optimization opportunities
-    const costRules = SUBSTITUTION_RULES[ingredient.productId]?.filter(rule => rule.reason === 'cost') || [];
-    costRules.forEach(rule => {
-      const substituteProduct = products.find(p => p.id === rule.substituteId);
-      if (substituteProduct && rule.costDifference < 0) { // Only suggest if it saves money
-        suggestions.push({
-          originalProductId: ingredient.productId,
-          originalProductName: product.name,
-          suggestedProductId: rule.substituteId,
-          suggestedProductName: rule.substituteName,
-          reason: 'cost',
-          confidence: rule.confidence,
-          costDifference: rule.costDifference,
-          quantityAdjustment: rule.quantityAdjustment,
-          notes: rule.notes,
-          impact: rule.impact
-        });
-      }
-    });
-
-    // Check for quantity optimization
-    if (quantity > 1) {
-      suggestions.push({
-        originalProductId: ingredient.productId,
-        originalProductName: product.name,
-        suggestedProductId: ingredient.productId,
-        suggestedProductName: product.name,
-        reason: 'quantity',
-        confidence: 0.9,
-        costDifference: -(quantity * product.cost * 0.9), // 10% reduction
-        quantityAdjustment: 0.1,
-        notes: `Reduce ${product.name} from ${quantity} ${ingredient.unit} to ${(quantity * 0.1).toFixed(2)} ${ingredient.unit} (${product.name} is typically used sparingly as a topping or filling)`,
-        impact: { taste: 'similar', texture: 'similar', nutrition: 'better', cost: 'better' }
-      });
-    }
-  });
-
-  return suggestions;
+export interface MenuGenerationContext {
+  targetCostRange: { min: number; max: number };
+  targetProfitMargin: number;
+  availableIngredients: Product[];
+  excludedIngredients: string[]; // Product IDs to avoid
+  preferredCategories: string[];
+  maxPreparationTime: number; // minutes
+  dietaryRestrictions: string[]; // e.g., 'vegetarian', 'gluten-free', 'dairy-free'
+  flavorPreferences: string[]; // e.g., 'spicy', 'sweet', 'savory'
 }
 
 export class SubstitutionEngine {
-  private products: Product[];
-  private recipes: Recipe[];
+  private static readonly COMPATIBILITY_WEIGHTS = {
+    flavorMatch: 0.4,
+    textureMatch: 0.3,
+    nutritionalMatch: 0.2,
+    allergenCompatibility: 0.1
+  };
 
-  constructor(products: Product[], recipes: Recipe[]) {
-    this.products = products;
-    this.recipes = recipes;
+  private static readonly SUBSTITUTION_DATABASE = {
+    // Dairy substitutions
+    'milk': [
+      { name: 'almond milk', ratio: 1.0, flavorScore: 85, textureScore: 90 },
+      { name: 'oat milk', ratio: 1.0, flavorScore: 90, textureScore: 95 },
+      { name: 'soy milk', ratio: 1.0, flavorScore: 80, textureScore: 85 },
+      { name: 'coconut milk', ratio: 0.8, flavorScore: 70, textureScore: 75 }
+    ],
+    'butter': [
+      { name: 'coconut oil', ratio: 0.8, flavorScore: 75, textureScore: 85 },
+      { name: 'olive oil', ratio: 0.7, flavorScore: 70, textureScore: 80 },
+      { name: 'vegetable oil', ratio: 0.8, flavorScore: 65, textureScore: 85 },
+      { name: 'applesauce', ratio: 0.5, flavorScore: 60, textureScore: 70 }
+    ],
+    'cheese': [
+      { name: 'nutritional yeast', ratio: 0.3, flavorScore: 80, textureScore: 40 },
+      { name: 'cashew cheese', ratio: 0.8, flavorScore: 85, textureScore: 90 },
+      { name: 'soy cheese', ratio: 1.0, flavorScore: 75, textureScore: 85 }
+    ],
+
+    // Protein substitutions
+    'beef': [
+      { name: 'ground turkey', ratio: 1.0, flavorScore: 85, textureScore: 90 },
+      { name: 'ground chicken', ratio: 1.0, flavorScore: 80, textureScore: 85 },
+      { name: 'lentils', ratio: 0.7, flavorScore: 70, textureScore: 75 },
+      { name: 'mushrooms', ratio: 1.2, flavorScore: 75, textureScore: 80 }
+    ],
+    'chicken': [
+      { name: 'tofu', ratio: 1.0, flavorScore: 70, textureScore: 75 },
+      { name: 'tempeh', ratio: 0.8, flavorScore: 75, textureScore: 80 },
+      { name: 'seitan', ratio: 0.9, flavorScore: 80, textureScore: 85 },
+      { name: 'jackfruit', ratio: 1.1, flavorScore: 70, textureScore: 85 }
+    ],
+
+    // Sweetener substitutions
+    'sugar': [
+      { name: 'honey', ratio: 0.7, flavorScore: 90, textureScore: 85 },
+      { name: 'maple syrup', ratio: 0.7, flavorScore: 85, textureScore: 80 },
+      { name: 'agave', ratio: 0.6, flavorScore: 80, textureScore: 85 },
+      { name: 'stevia', ratio: 0.1, flavorScore: 70, textureScore: 90 }
+    ],
+
+    // Flour substitutions
+    'flour': [
+      { name: 'almond flour', ratio: 0.8, flavorScore: 85, textureScore: 80 },
+      { name: 'coconut flour', ratio: 0.3, flavorScore: 80, textureScore: 75 },
+      { name: 'oat flour', ratio: 1.0, flavorScore: 85, textureScore: 85 },
+      { name: 'rice flour', ratio: 1.0, flavorScore: 80, textureScore: 85 }
+    ],
+
+    // Oil substitutions
+    'olive oil': [
+      { name: 'avocado oil', ratio: 1.0, flavorScore: 90, textureScore: 95 },
+      { name: 'coconut oil', ratio: 1.0, flavorScore: 75, textureScore: 85 },
+      { name: 'vegetable oil', ratio: 1.0, flavorScore: 70, textureScore: 90 }
+    ]
+  };
+
+  /**
+   * Find optimal substitutions for a recipe
+   */
+  static async findOptimalSubstitutions(
+    recipe: Recipe,
+    products: Product[],
+    salesData?: any[]
+  ): Promise<SubstitutionSuggestion[]> {
+    const suggestions: SubstitutionSuggestion[] = [];
+
+    for (const ingredient of recipe.ingredients) {
+      const product = products.find(p => p.id === ingredient.productId);
+      if (!product) continue;
+
+      // Find potential substitutes
+      const substitutes = await this.findSubstitutes(product, products);
+      
+      for (const substitute of substitutes) {
+        const suggestion = await this.evaluateSubstitution(
+          ingredient,
+          product,
+          substitute,
+          recipe,
+          salesData
+        );
+        
+        if (suggestion && suggestion.savings.costReduction > 0) {
+          suggestions.push(suggestion);
+        }
+      }
+    }
+
+    return suggestions.sort((a, b) => b.savings.costReduction - a.savings.costReduction);
   }
 
   /**
-   * Get substitution suggestions for a recipe based on availability and cost
+   * Find potential substitute products
    */
-  getSubstitutionSuggestions(recipeId: string): SubstitutionSuggestion[] {
-    let recipe = this.recipes.find(r => r.id === recipeId);
-    
-    // Handle temporary recipes (new recipes being created)
-    if (!recipe && recipeId === 'temp-recipe') {
-      // For temporary recipes, we'll return empty suggestions
-      // The actual recipe data will be passed through the ingredients parameter
-      return [];
+  private static async findSubstitutes(
+    originalProduct: Product,
+    allProducts: Product[]
+  ): Promise<Product[]> {
+    const substitutes: Product[] = [];
+
+    // Check predefined substitution database
+    const productName = originalProduct.name.toLowerCase();
+    const substitutionRules = this.findSubstitutionRules(productName);
+
+    for (const rule of substitutionRules) {
+      const substitute = allProducts.find(p => 
+        p.name.toLowerCase().includes(rule.name.toLowerCase()) &&
+        p.id !== originalProduct.id
+      );
+
+      if (substitute) {
+        substitutes.push(substitute);
+      }
     }
-    
-    if (!recipe) return [];
-    
-    const suggestions: SubstitutionSuggestion[] = [];
-    
-    recipe.ingredients.forEach(ingredient => {
-      const product = this.products.find(p => p.id === ingredient.productId);
-      if (!product) return;
-      
-      const productSuggestions = this.getSubstitutionSuggestionsForProduct(ingredient.productId, this.products);
-      suggestions.push(...productSuggestions);
-    });
-    
-    return suggestions;
+
+    // Check product's defined substitutes
+    if (originalProduct.substitutes) {
+      for (const substituteId of originalProduct.substitutes) {
+        const substitute = allProducts.find(p => p.id === substituteId);
+        if (substitute) {
+          substitutes.push(substitute);
+        }
+      }
+    }
+
+    // Find products in same category with similar nutritional profile
+    const categorySubstitutes = allProducts.filter(p => 
+      p.categoryType === originalProduct.categoryType &&
+      p.id !== originalProduct.id &&
+      this.hasSimilarNutritionalProfile(originalProduct, p)
+    );
+
+    substitutes.push(...categorySubstitutes);
+
+    return [...new Set(substitutes)]; // Remove duplicates
   }
 
-  getSubstitutionSuggestionsForProduct(productId: string, products: Product[], inventory?: InventoryItem[]): SubstitutionSuggestion[] {
-    const product = products.find(p => p.id === productId);
-    if (!product) return [];
+  /**
+   * Find substitution rules for a product
+   */
+  private static findSubstitutionRules(productName: string): any[] {
+    const rules: any[] = [];
 
-    const suggestions: SubstitutionSuggestion[] = [];
-    
-    // Get inventory data for this product
-    const inventoryItem = inventory?.find(i => i.productId === productId);
-    const actualStock = inventoryItem?.currentStock ?? product.currentStock;
-    
-    // Get product name for universal substitution lookup
-    const productNameLower = product.name.toLowerCase();
-    
-    // Debug: Log product availability status
-    console.log(`Checking availability for ${product.name}:`, {
-      isAvailable: product.isAvailable,
-      productCurrentStock: product.currentStock,
-      inventoryCurrentStock: inventoryItem?.currentStock,
-      actualStock: actualStock,
-      productId: productId
-    });
-    
-    // Check availability - handle negative stock values as out of stock
-    const isOutOfStock = product.isAvailable === false || 
-                        actualStock === 0 || 
-                        (actualStock && actualStock < 0);
-    
-    console.log(`Availability check for ${product.name}:`, {
-      isAvailable: product.isAvailable,
-      actualStock: actualStock,
-      isOutOfStock: isOutOfStock,
-      hasInventoryData: !!inventoryItem
-    });
-    
-    if (isOutOfStock) {
-      console.log(`Product ${product.name} is out of stock, checking for availability substitutions...`);
-      
-      // Get availability rules based on product name (case-insensitive)
-      const productNameLower = product.name.toLowerCase();
-      let availabilityRules: any[] = [];
-      
-      // Use universal substitution database
-      console.log(`Looking up substitutions for: ${product.name} (${productNameLower})`);
-      
-      // Find matching substitutions in the universal database
-      const universalSubstitutions = UNIVERSAL_SUBSTITUTIONS[productNameLower] || [];
-      console.log(`Found ${universalSubstitutions.length} universal substitutions for ${product.name}`);
-      
-      // Filter substitutions based on reason (availability, cost, etc.)
-      const availabilitySubstitutions = universalSubstitutions.filter(sub => sub.reason === 'availability');
-      const costSubstitutions = universalSubstitutions.filter(sub => sub.reason === 'cost');
-      
-      // Add availability substitutions
-      availabilitySubstitutions.forEach(sub => {
-        console.log(`Adding availability substitution: ${product.name} → ${sub.substituteName}`);
-        availabilityRules.push({
-          substituteId: `universal-${sub.substituteName.toLowerCase().replace(/\s+/g, '-')}`,
-          substituteName: sub.substituteName,
-          reason: 'availability',
-          confidence: sub.confidence,
-          costDifference: sub.costDifference,
-          quantityAdjustment: sub.quantityAdjustment,
-          notes: sub.notes,
-          impact: sub.impact
-        });
-      });
-      
-      // Add cost optimization substitutions (only if product is expensive)
-      if (product.cost > 10) { // Consider products over $10 as expensive
-        costSubstitutions.forEach(sub => {
-          console.log(`Adding cost optimization substitution: ${product.name} → ${sub.substituteName}`);
-          availabilityRules.push({
-            substituteId: `universal-${sub.substituteName.toLowerCase().replace(/\s+/g, '-')}`,
-            substituteName: sub.substituteName,
-            reason: 'cost',
-            confidence: sub.confidence,
-            costDifference: sub.costDifference,
-            quantityAdjustment: sub.quantityAdjustment,
-            notes: sub.notes,
-            impact: sub.impact
-          });
-        });
+    for (const [category, substitutions] of Object.entries(this.SUBSTITUTION_DATABASE)) {
+      if (productName.includes(category)) {
+        rules.push(...substitutions);
       }
-      
-      console.log(`Found ${availabilityRules.length} availability rules for ${product.name}:`, availabilityRules);
-      availabilityRules.forEach(rule => {
-        const substituteProduct = products.find(p => p.id === rule.substituteId);
-        if (substituteProduct) {
-          console.log(`Found availability substitution: ${product.name} → ${substituteProduct.name}`);
-          suggestions.push({
-            originalProductId: productId,
-            originalProductName: product.name,
-            suggestedProductId: rule.substituteId,
-            suggestedProductName: rule.substituteName,
-            reason: 'availability',
-            confidence: rule.confidence,
-            costDifference: rule.costDifference,
-            quantityAdjustment: rule.quantityAdjustment,
-            notes: rule.notes,
-            impact: rule.impact
-          });
-        } else {
-          console.log(`Substitute product not found: ${rule.substituteId}`);
-        }
-      });
+    }
+
+    return rules;
+  }
+
+  /**
+   * Check if two products have similar nutritional profiles
+   */
+  private static hasSimilarNutritionalProfile(product1: Product, product2: Product): boolean {
+    if (!product1.nutritionalInfo || !product2.nutritionalInfo) return false;
+
+    const info1 = product1.nutritionalInfo;
+    const info2 = product2.nutritionalInfo;
+
+    // Compare key nutritional values
+    const caloriesDiff = Math.abs((info1.calories || 0) - (info2.calories || 0));
+    const proteinDiff = Math.abs((info1.protein || 0) - (info2.protein || 0));
+    const carbsDiff = Math.abs((info1.carbs || 0) - (info2.carbs || 0));
+
+    // Consider similar if differences are within 20%
+    return caloriesDiff < 50 && proteinDiff < 5 && carbsDiff < 10;
+  }
+
+  /**
+   * Evaluate a specific substitution
+   */
+  private static async evaluateSubstitution(
+    ingredient: RecipeIngredient,
+    originalProduct: Product,
+    substituteProduct: Product,
+    recipe: Recipe,
+    salesData?: any[]
+  ): Promise<SubstitutionSuggestion | null> {
+    try {
+      // Get current prices
+      const originalPrice = await this.getCurrentPrice(originalProduct);
+      const substitutePrice = await this.getCurrentPrice(substituteProduct);
+
+      // Calculate quantities per serving
+      const originalQuantityPerServing = this.calculateQuantityPerServing(ingredient, recipe);
+      const substitutionRule = this.findSubstitutionRules(originalProduct.name.toLowerCase())
+        .find(rule => substituteProduct.name.toLowerCase().includes(rule.name.toLowerCase()));
+
+      const substitutionRatio = substitutionRule?.ratio || 1.0;
+      const substituteQuantityPerServing = originalQuantityPerServing * substitutionRatio;
+
+      // Calculate costs
+      const originalCostPerServing = originalQuantityPerServing * originalPrice;
+      const substituteCostPerServing = substituteQuantityPerServing * substitutePrice;
+      const costReduction = originalCostPerServing - substituteCostPerServing;
+
+      // Skip if no savings
+      if (costReduction <= 0) return null;
+
+      // Calculate compatibility score
+      const compatibility = this.calculateCompatibility(
+        originalProduct,
+        substituteProduct,
+        substitutionRule
+      );
+
+      // Calculate annual savings if sales data available
+      let annualSavings;
+      if (salesData) {
+        const recipeSales = salesData.filter(sale => sale.recipeName === recipe.name);
+        const totalServings = recipeSales.reduce((sum, sale) => sum + sale.quantity, 0);
+        annualSavings = costReduction * totalServings;
+      }
+
+      // Assess implementation difficulty and risks
+      const implementation = this.assessImplementation(substituteProduct, originalProduct);
+      const risks = this.assessRisks(substituteProduct, originalProduct, compatibility.score);
+
+      return {
+        originalIngredient: {
+          productId: originalProduct.id,
+          name: originalProduct.name,
+          currentPrice: originalPrice,
+          costPerServing: originalCostPerServing
+        },
+        suggestedSubstitute: {
+          productId: substituteProduct.id,
+          name: substituteProduct.name,
+          currentPrice: substitutePrice,
+          costPerServing: substituteCostPerServing,
+          substitutionRatio
+        },
+        savings: {
+          costReduction,
+          percentageReduction: (costReduction / originalCostPerServing) * 100,
+          annualSavings
+        },
+        compatibility,
+        implementation,
+        risks
+      };
+
+    } catch (error) {
+      console.error(`Error evaluating substitution for ${originalProduct.name}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Get current price for a product
+   */
+  private static async getCurrentPrice(product: Product): Promise<number> {
+    try {
+      // Try to get real-time price from USDA API
+      const usdaData = await USDAPriceAPI.getCommodityPriceData(product.name);
+      if (usdaData && usdaData.currentPrice) {
+        return usdaData.currentPrice;
+      }
+    } catch (error) {
+      console.log(`Could not fetch USDA price for ${product.name}, using stored price`);
+    }
+
+    // Fallback to stored price
+    return product.cost || 0;
+  }
+
+  /**
+   * Calculate quantity per serving
+   */
+  private static calculateQuantityPerServing(
+    ingredient: RecipeIngredient,
+    recipe: Recipe
+  ): number {
+    const baseQuantity = typeof ingredient.quantity === 'string' 
+      ? parseFloat(ingredient.quantity) 
+      : ingredient.quantity;
+
+    const yieldPercentage = typeof ingredient.yieldPercentage === 'string'
+      ? parseFloat(ingredient.yieldPercentage) / 100
+      : (ingredient.yieldPercentage || 100) / 100;
+
+    const lossPercentage = typeof ingredient.lossPercentage === 'string'
+      ? parseFloat(ingredient.lossPercentage) / 100
+      : (ingredient.lossPercentage || 0) / 100;
+
+    const effectiveQuantity = baseQuantity * yieldPercentage * (1 - lossPercentage);
+    return effectiveQuantity / recipe.servings;
+  }
+
+  /**
+   * Calculate compatibility score between products
+   */
+  private static calculateCompatibility(
+    originalProduct: Product,
+    substituteProduct: Product,
+    substitutionRule?: any
+  ): SubstitutionSuggestion['compatibility'] {
+    let flavorMatch = 70; // Default score
+    let textureMatch = 70;
+    let nutritionalMatch = 70;
+    let allergenCompatibility = 100;
+
+    // Use substitution rule scores if available
+    if (substitutionRule) {
+      flavorMatch = substitutionRule.flavorScore || 70;
+      textureMatch = substitutionRule.textureScore || 70;
+    }
+
+    // Adjust based on nutritional similarity
+    if (originalProduct.nutritionalInfo && substituteProduct.nutritionalInfo) {
+      const original = originalProduct.nutritionalInfo;
+      const substitute = substituteProduct.nutritionalInfo;
+
+      const caloriesDiff = Math.abs((original.calories || 0) - (substitute.calories || 0));
+      const proteinDiff = Math.abs((original.protein || 0) - (substitute.protein || 0));
+
+      if (caloriesDiff < 20 && proteinDiff < 2) {
+        nutritionalMatch = 90;
+      } else if (caloriesDiff < 50 && proteinDiff < 5) {
+        nutritionalMatch = 75;
+      } else {
+        nutritionalMatch = 60;
+      }
+    }
+
+    // Check allergen compatibility
+    if (originalProduct.allergens && substituteProduct.allergens) {
+      const commonAllergens = originalProduct.allergens.filter(allergen =>
+        substituteProduct.allergens?.includes(allergen)
+      );
+      allergenCompatibility = 100 - (commonAllergens.length * 20);
+    }
+
+    const factors = {
+      flavorMatch,
+      textureMatch,
+      nutritionalMatch,
+      allergenCompatibility
+    };
+
+    const score = Object.entries(factors).reduce((total, [key, value]) => {
+      return total + (value * (this.COMPATIBILITY_WEIGHTS as any)[key]);
+    }, 0);
+
+    return { score, factors };
+  }
+
+  /**
+   * Assess implementation difficulty
+   */
+  private static assessImplementation(
+    substituteProduct: Product,
+    originalProduct: Product
+  ): SubstitutionSuggestion['implementation'] {
+    let difficulty: 'easy' | 'medium' | 'hard' = 'easy';
+    let timeToImplement = '1-2 days';
+    let testingRequired = false;
+    let staffTrainingNeeded = false;
+
+    // Assess based on product categories
+    if (originalProduct.categoryType !== substituteProduct.categoryType) {
+      difficulty = 'medium';
+      timeToImplement = '3-5 days';
+      testingRequired = true;
+    }
+
+    // Assess based on allergen differences
+    if (originalProduct.allergens && substituteProduct.allergens) {
+      const allergenDifferences = originalProduct.allergens.filter(allergen =>
+        !substituteProduct.allergens?.includes(allergen)
+      );
+      if (allergenDifferences.length > 0) {
+        difficulty = 'hard';
+        timeToImplement = '1-2 weeks';
+        testingRequired = true;
+        staffTrainingNeeded = true;
+      }
+    }
+
+    return {
+      difficulty,
+      timeToImplement,
+      testingRequired,
+      staffTrainingNeeded
+    };
+  }
+
+  /**
+   * Assess risks of substitution
+   */
+  private static assessRisks(
+    substituteProduct: Product,
+    originalProduct: Product,
+    compatibilityScore: number
+  ): SubstitutionSuggestion['risks'] {
+    let customerAcceptance: 'low' | 'medium' | 'high' = 'low';
+    let supplyReliability: 'low' | 'medium' | 'high' = 'medium';
+    let qualityConsistency: 'low' | 'medium' | 'high' = 'medium';
+
+    // Customer acceptance based on compatibility
+    if (compatibilityScore >= 85) {
+      customerAcceptance = 'low';
+    } else if (compatibilityScore >= 70) {
+      customerAcceptance = 'medium';
     } else {
-      console.log(`Product ${product.name} is in stock (isAvailable: ${product.isAvailable}, actualStock: ${actualStock})`);
+      customerAcceptance = 'high';
     }
 
-    // Check cost optimization using universal database
-    const costSubstitutions = UNIVERSAL_SUBSTITUTIONS[productNameLower]?.filter(sub => sub.reason === 'cost') || [];
-    costSubstitutions.forEach(sub => {
-      if (sub.costDifference < 0) { // Only suggest cheaper alternatives
-        suggestions.push({
-          originalProductId: productId,
-          originalProductName: product.name,
-          suggestedProductId: `universal-${sub.substituteName.toLowerCase().replace(/\s+/g, '-')}`,
-          suggestedProductName: sub.substituteName,
-          reason: 'cost',
-          confidence: sub.confidence,
-          costDifference: sub.costDifference,
-          quantityAdjustment: sub.quantityAdjustment,
-          notes: sub.notes,
-          impact: sub.impact
-        });
+    // Supply reliability based on product availability
+    if (substituteProduct.isAvailable === false) {
+      supplyReliability = 'high';
+    } else if (substituteProduct.supplier && substituteProduct.supplier.includes('Local')) {
+      supplyReliability = 'medium';
+    } else {
+      supplyReliability = 'low';
+    }
+
+    // Quality consistency based on product type
+    if (substituteProduct.categoryType === 'Dry Goods' || substituteProduct.categoryType === 'Supplies') {
+      qualityConsistency = 'low';
+    } else if (substituteProduct.categoryType === 'Fresh Food' || substituteProduct.categoryType === 'Produce') {
+      qualityConsistency = 'high';
+    }
+
+    return {
+      customerAcceptance,
+      supplyReliability,
+      qualityConsistency
+    };
+  }
+
+  /**
+   * Optimize entire recipe with best substitutions
+   */
+  static async optimizeRecipe(
+    recipe: Recipe,
+    products: Product[],
+    salesData?: any[]
+  ): Promise<RecipeOptimization> {
+    const substitutions = await this.findOptimalSubstitutions(recipe, products, salesData);
+    
+    const currentCostPerServing = substitutions.reduce((total, sub) => 
+      total + sub.originalIngredient.costPerServing, 0
+    );
+    
+    const optimizedCostPerServing = substitutions.reduce((total, sub) => 
+      total + sub.suggestedSubstitute.costPerServing, 0
+    );
+    
+    const totalSavings = currentCostPerServing - optimizedCostPerServing;
+
+    // Assess overall implementation
+    const maxDifficulty = substitutions.reduce((max, sub) => {
+      const difficultyOrder = { easy: 1, medium: 2, hard: 3 };
+      return Math.max(max, difficultyOrder[sub.implementation.difficulty]);
+    }, 1);
+
+    const riskLevel = substitutions.reduce((maxRisk, sub) => {
+      const riskOrder = { low: 1, medium: 2, high: 3 };
+      const maxSubRisk = Math.max(
+        riskOrder[sub.risks.customerAcceptance],
+        riskOrder[sub.risks.supplyReliability],
+        riskOrder[sub.risks.qualityConsistency]
+      );
+      return Math.max(maxRisk, maxSubRisk);
+    }, 1);
+
+    return {
+      recipeId: recipe.id,
+      recipeName: recipe.name,
+      currentCostPerServing,
+      optimizedCostPerServing,
+      totalSavings,
+      substitutions,
+      implementation: {
+        totalTimeToImplement: maxDifficulty === 3 ? '2-3 weeks' : maxDifficulty === 2 ? '1 week' : '3-5 days',
+        riskLevel: riskLevel === 3 ? 'high' : riskLevel === 2 ? 'medium' : 'low',
+        testingPhases: substitutions.filter(sub => sub.implementation.testingRequired).length
       }
+    };
+  }
+
+  /**
+   * Generate new menu items based on available ingredients and cost optimization
+   */
+  static async generateMenuItems(
+    context: MenuGenerationContext,
+    count: number = 5
+  ): Promise<GeneratedMenuItem[]> {
+    const menuItems: GeneratedMenuItem[] = [];
+    
+    // Define menu templates based on categories
+    const menuTemplates = this.getMenuTemplates();
+    
+    for (let i = 0; i < count; i++) {
+      const template = menuTemplates[Math.floor(Math.random() * menuTemplates.length)];
+      const menuItem = await this.createMenuItemFromTemplate(template, context);
+      if (menuItem) {
+        menuItems.push(menuItem);
+      }
+    }
+    
+    // Sort by profit margin and cost efficiency
+    return menuItems.sort((a, b) => {
+      const scoreA = a.estimatedProfitMargin * 0.7 + (a.estimatedCostPerServing <= context.targetCostRange.max ? 30 : 0);
+      const scoreB = b.estimatedProfitMargin * 0.7 + (b.estimatedCostPerServing <= context.targetCostRange.max ? 30 : 0);
+      return scoreB - scoreA;
     });
-
-    return suggestions;
   }
 
-  // Get real product data with caching
-  private async getCachedProductData(productName: string): Promise<RealProductData | null> {
-    const cacheKey = productName.toLowerCase();
-    const cached = productDataCache.get(cacheKey);
-    
-    // Check if cache is still valid
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      console.log(`Using cached data for ${productName}`);
-      return cached.data;
-    }
-    
-    // Fetch fresh data
-    console.log(`Fetching fresh data for ${productName}`);
-    const realData = await ProductDataAPI.getRealProductData(productName);
-    
-    if (realData) {
-      productDataCache.set(cacheKey, { data: realData, timestamp: Date.now() });
-      console.log(`Cached real data for ${productName}:`, realData);
-    }
-    
-    return realData;
-  }
+  /**
+   * Create a menu item from a template
+   */
+  private static async createMenuItemFromTemplate(
+    template: any,
+    context: MenuGenerationContext
+  ): Promise<GeneratedMenuItem | null> {
+    const availableIngredients = context.availableIngredients.filter(
+      p => !context.excludedIngredients.includes(p.id)
+    );
 
-  // Calculate cost difference using real product data
-  private async calculateRealCostDifference(originalProduct: Product, substituteProductName: string, quantityAdjustment: number): Promise<number> {
-    // Get real data for substitute product
-    const realSubstituteData = await this.getCachedProductData(substituteProductName);
-    
-    if (!realSubstituteData) {
-      console.log(`No real data found for substitute: ${substituteProductName}`);
-      return 0;
-    }
-    
-    // Calculate cost per unit for original product
-    const originalCostPerUnit = originalProduct.cost / (originalProduct.packageSize || 1);
-    
-    // Use real pricing for substitute product
-    const substituteCostPerUnit = realSubstituteData.typicalPrice / (realSubstituteData.packageSize || 1);
-    
-    // Calculate adjusted cost considering quantity adjustment
-    const adjustedSubstituteCost = substituteCostPerUnit * quantityAdjustment;
-    
-    // Cost difference (negative = cheaper, positive = more expensive)
-    const costDifference = adjustedSubstituteCost - originalCostPerUnit;
-    
-    console.log(`Real cost calculation for ${originalProduct.name} → ${substituteProductName}:`);
-    console.log(`  Original: $${originalCostPerUnit.toFixed(2)}/unit (from your inventory)`);
-    console.log(`  Substitute: $${substituteCostPerUnit.toFixed(2)}/unit (from ${realSubstituteData.source}) × ${quantityAdjustment} = $${adjustedSubstituteCost.toFixed(2)}/unit`);
-    console.log(`  Cost difference: $${costDifference.toFixed(2)}`);
-    console.log(`  Data source: ${realSubstituteData.source} (updated: ${new Date(realSubstituteData.lastUpdated).toLocaleDateString()})`);
-    
-    return costDifference;
-  }
+    // Find ingredients that match the template requirements
+    const selectedIngredients = [];
+    let totalCost = 0;
 
-  // Get realistic substitution suggestions with real pricing data
-  async getRealisticSubstitutionSuggestions(productId: string, products: Product[], inventory?: InventoryItem[]): Promise<SubstitutionSuggestion[]> {
-    const product = products.find(p => p.id === productId);
-    if (!product) return [];
-
-    const suggestions: SubstitutionSuggestion[] = [];
-    const productNameLower = product.name.toLowerCase();
-    
-    // Get inventory data for this product
-    const inventoryItem = inventory?.find(i => i.productId === productId);
-    const actualStock = inventoryItem?.currentStock ?? product.currentStock;
-    
-    // Check if product is out of stock
-    const isOutOfStock = product.isAvailable === false || 
-                        actualStock === 0 || 
-                        (actualStock && actualStock < 0);
-    
-    console.log(`Getting realistic substitutions for ${product.name} (out of stock: ${isOutOfStock})`);
-    
-    // Get universal substitution rules
-    const universalSubstitutions = UNIVERSAL_SUBSTITUTIONS[productNameLower] || [];
-    
-    // Process each substitution rule with real data
-    for (const sub of universalSubstitutions) {
-      // Calculate dynamic cost difference using real data
-      const realCostDifference = await this.calculateRealCostDifference(product, sub.substituteName, sub.quantityAdjustment);
-      
-      // Get real product data for additional info
-      const realData = await this.getCachedProductData(sub.substituteName);
-      
-      // Categorize suggestions more intelligently
-      let shouldAdd = false;
-      let actualReason = sub.reason;
-      
-      if (sub.reason === 'availability' && isOutOfStock) {
-        // Only show as availability if it's truly about availability, not cost
-        if (realCostDifference >= 0) {
-          // If substitute is more expensive, it's purely for availability
-          shouldAdd = true;
-          actualReason = 'availability';
-          console.log(`Adding availability substitution: ${product.name} → ${sub.substituteName} (purely for availability)`);
-        } else {
-          // If substitute is cheaper, it's both availability AND cost optimization
-          shouldAdd = true;
-          actualReason = 'availability';
-          console.log(`Adding availability substitution: ${product.name} → ${sub.substituteName} (availability + cost savings)`);
+    for (const requirement of template.ingredients) {
+      const matchingIngredients = availableIngredients.filter(ingredient => {
+        // Check category match
+        if (requirement.category && ingredient.categoryType !== requirement.category) {
+          return false;
         }
-      } else if (sub.reason === 'cost' && !isOutOfStock) {
-        // Only show cost optimization if original is in stock and substitute is actually cheaper
-        if (realCostDifference < 0) {
-          shouldAdd = true;
-          actualReason = 'cost';
-          console.log(`Adding cost optimization substitution: ${product.name} → ${sub.substituteName} (saves $${Math.abs(realCostDifference).toFixed(2)})`);
-        }
-      }
-      
-      if (shouldAdd) {
-                  // Dynamically calculate impact based on real cost difference
-          const dynamicImpact = {
-            ...sub.impact,
-            cost: realCostDifference < 0 ? 'better' as const : realCostDifference > 0 ? 'worse' as const : 'similar' as const
-          };
         
-        suggestions.push({
-          originalProductId: productId,
-          originalProductName: product.name,
-          suggestedProductId: `real-${sub.substituteName.toLowerCase().replace(/\s+/g, '-')}`,
-          suggestedProductName: sub.substituteName,
-          reason: actualReason,
-          confidence: sub.confidence,
-          costDifference: realCostDifference, // Use real calculated cost difference
-          quantityAdjustment: sub.quantityAdjustment,
-          notes: `${sub.notes} (Real cost difference: $${realCostDifference.toFixed(2)}. Data source: ${realData?.source || 'Market data'})`,
-          impact: dynamicImpact
-        });
+        // Check dietary restrictions
+        if (context.dietaryRestrictions.includes('vegetarian') && 
+            ['Meat', 'Dairy'].includes(ingredient.categoryType)) {
+          return false;
+        }
+        
+        if (context.dietaryRestrictions.includes('dairy-free') && 
+            ingredient.categoryType === 'Dairy') {
+          return false;
+        }
+        
+        return true;
+      });
+
+      if (matchingIngredients.length === 0) {
+        return null; // Can't create this menu item
       }
+
+      // Select the most cost-effective ingredient
+      const selectedIngredient = matchingIngredients.reduce((best, current) => {
+        const bestCostPerUnit = best.cost / best.packageSize;
+        const currentCostPerUnit = current.cost / current.packageSize;
+        return currentCostPerUnit < bestCostPerUnit ? current : best;
+      });
+
+      const quantity = requirement.quantity || 1;
+      const costPerUnit = selectedIngredient.cost / selectedIngredient.packageSize;
+      const ingredientCost = quantity * costPerUnit;
+
+      selectedIngredients.push({
+        productId: selectedIngredient.id,
+        productName: selectedIngredient.name,
+        quantity,
+        unit: requirement.unit || selectedIngredient.unit,
+        costPerUnit,
+        totalCost: ingredientCost
+      });
+
+      totalCost += ingredientCost;
     }
+
+    // Check if cost is within target range
+    if (totalCost < context.targetCostRange.min || totalCost > context.targetCostRange.max) {
+      return null;
+    }
+
+    // Calculate pricing
+    const suggestedPrice = totalCost * (1 + context.targetProfitMargin / 100);
+    const profitMargin = ((suggestedPrice - totalCost) / suggestedPrice) * 100;
+
+    // Generate flavor profile
+    const flavorProfile = this.generateFlavorProfile(selectedIngredients, context.flavorPreferences);
     
-    return suggestions;
+    // Generate nutritional highlights
+    const nutritionalHighlights = this.generateNutritionalHighlights(selectedIngredients);
+    
+    // Determine difficulty and prep time
+    const difficulty = this.determineDifficulty(selectedIngredients, template);
+    const preparationTime = this.estimatePreparationTime(template, difficulty);
+
+    return {
+      id: `generated-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: this.generateMenuItemName(template, selectedIngredients),
+      description: this.generateDescription(template, selectedIngredients, flavorProfile),
+      category: template.category,
+      ingredients: selectedIngredients,
+      estimatedCostPerServing: totalCost,
+      suggestedPrice,
+      estimatedProfitMargin: profitMargin,
+      flavorProfile,
+      nutritionalHighlights,
+      preparationTime,
+      difficulty,
+      seasonalAvailability: this.getSeasonalAvailability(selectedIngredients),
+      inspiration: template.inspiration || 'Cost-optimized ingredient combination',
+      tags: this.generateTags(template, selectedIngredients, context)
+    };
   }
 
-  getQuantityOptimizationSuggestions(ingredients: RecipeIngredient[], servings: number): SubstitutionSuggestion[] {
-    const suggestions: SubstitutionSuggestion[] = [];
+  /**
+   * Get predefined menu templates
+   */
+  private static getMenuTemplates() {
+    return [
+      {
+        category: 'main',
+        name: 'Protein Bowl',
+        ingredients: [
+          { category: 'Meat', quantity: 0.5, unit: 'lb' },
+          { category: 'Produce', quantity: 1, unit: 'cup' },
+          { category: 'Dry Goods', quantity: 0.5, unit: 'cup' }
+        ],
+        inspiration: 'Trending protein bowl concept'
+      },
+      {
+        category: 'dessert',
+        name: 'Fruit Parfait',
+        ingredients: [
+          { category: 'Produce', quantity: 1, unit: 'cup' },
+          { category: 'Dairy', quantity: 0.5, unit: 'cup' },
+          { category: 'Dry Goods', quantity: 0.25, unit: 'cup' }
+        ],
+        inspiration: 'Healthy dessert alternative'
+      },
+      {
+        category: 'appetizer',
+        name: 'Seasonal Bruschetta',
+        ingredients: [
+          { category: 'Dry Goods', quantity: 4, unit: 'slices' },
+          { category: 'Produce', quantity: 0.5, unit: 'cup' },
+          { category: 'Dairy', quantity: 0.25, unit: 'cup' }
+        ],
+        inspiration: 'Classic Italian with seasonal twist'
+      },
+      {
+        category: 'beverage',
+        name: 'Smoothie Bowl',
+        ingredients: [
+          { category: 'Produce', quantity: 1, unit: 'cup' },
+          { category: 'Dairy', quantity: 0.5, unit: 'cup' },
+          { category: 'Dry Goods', quantity: 0.25, unit: 'cup' }
+        ],
+        inspiration: 'Instagram-worthy healthy beverage'
+      },
+      {
+        category: 'side',
+        name: 'Roasted Vegetables',
+        ingredients: [
+          { category: 'Produce', quantity: 1, unit: 'cup' },
+          { category: 'Dry Goods', quantity: 0.25, unit: 'cup' }
+        ],
+        inspiration: 'Simple, healthy side dish'
+      }
+    ];
+  }
 
+  /**
+   * Generate flavor profile based on ingredients
+   */
+  private static generateFlavorProfile(
+    ingredients: any[],
+    preferences: string[]
+  ): string[] {
+    const flavors = new Set<string>();
+    
+    // Add preferences
+    preferences.forEach(pref => flavors.add(pref));
+    
+    // Add flavors based on ingredients
     ingredients.forEach(ingredient => {
-      // Convert string quantity to number for calculations
-      const quantity = typeof ingredient.quantity === 'string' ? parseFloat(ingredient.quantity) || 0 : ingredient.quantity;
-      
-      // Find the actual product to get its name and cost
-      const product = this.products.find(p => p.id === ingredient.productId);
-      if (!product) return;
-      
-      // Check for excessive quantities based on ingredient type
-      let isExcessive = false;
-      let suggestedQuantity = quantity;
-      let reason = '';
-      
-      // Chocolate is typically used sparingly (0.1-0.2 lb per serving)
-      if (product.name.toLowerCase().includes('chocolate')) {
-        if (quantity > 0.2) {
-          isExcessive = true;
-          suggestedQuantity = 0.1;
-          reason = 'Chocolate is typically used sparingly as a topping or filling';
-        }
+      if (ingredient.productName.toLowerCase().includes('chocolate')) {
+        flavors.add('rich');
+        flavors.add('sweet');
       }
-      // Sugar is typically used moderately (0.1-0.3 lb per serving)
-      else if (product.name.toLowerCase().includes('sugar')) {
-        if (quantity > 0.3) {
-          isExcessive = true;
-          suggestedQuantity = 0.2;
-          reason = 'Sugar should be used moderately for balanced sweetness';
-        }
+      if (ingredient.productName.toLowerCase().includes('strawberry')) {
+        flavors.add('sweet');
+        flavors.add('fruity');
       }
-      // Butter is typically used moderately (0.1-0.2 lb per serving)
-      else if (product.name.toLowerCase().includes('butter')) {
-        if (quantity > 0.2) {
-          isExcessive = true;
-          suggestedQuantity = 0.15;
-          reason = 'Butter adds richness but should be used in moderation';
-        }
+      if (ingredient.productName.toLowerCase().includes('spice')) {
+        flavors.add('spicy');
       }
-      // General rule: if quantity > 0.5 lb per serving, it's likely excessive
-      else if (quantity > 0.5) {
-        isExcessive = true;
-        suggestedQuantity = quantity * 0.3; // Reduce by 70%
-        reason = 'This quantity seems excessive for a single serving';
-      }
-      
-      if (isExcessive) {
-        const costPerUnit = product.cost / (product.packageSize || 1);
-        const costSavings = (quantity - suggestedQuantity) * costPerUnit;
-        
-        suggestions.push({
-          originalProductId: ingredient.productId,
-          originalProductName: product.name,
-          suggestedProductId: ingredient.productId,
-          suggestedProductName: product.name,
-          reason: 'quantity',
-          confidence: 0.9,
-          costDifference: -costSavings,
-          quantityAdjustment: suggestedQuantity / quantity,
-          notes: `Reduce ${product.name} from ${quantity} ${ingredient.unit} to ${suggestedQuantity.toFixed(2)} ${ingredient.unit} (${reason})`,
-          impact: { taste: 'similar', texture: 'similar', nutrition: 'better', cost: 'better' }
-        });
+      if (ingredient.productName.toLowerCase().includes('lemon')) {
+        flavors.add('tangy');
+        flavors.add('citrus');
       }
     });
-
-    return suggestions;
+    
+    return Array.from(flavors);
   }
 
-  private processSubstitutionRules(product: Product, rules: any[]): SubstitutionSuggestion[] {
-    // This function is no longer needed with the new structure
-    return [];
+  /**
+   * Generate nutritional highlights
+   */
+  private static generateNutritionalHighlights(ingredients: any[]): string[] {
+    const highlights = [];
+    
+    const hasProtein = ingredients.some(ing => 
+      ing.productName.toLowerCase().includes('chicken') ||
+      ing.productName.toLowerCase().includes('beef') ||
+      ing.productName.toLowerCase().includes('eggs')
+    );
+    
+    const hasFiber = ingredients.some(ing => 
+      ing.productName.toLowerCase().includes('vegetable') ||
+      ing.productName.toLowerCase().includes('fruit')
+    );
+    
+    const hasHealthyFats = ingredients.some(ing => 
+      ing.productName.toLowerCase().includes('olive') ||
+      ing.productName.toLowerCase().includes('avocado')
+    );
+    
+    if (hasProtein) highlights.push('High Protein');
+    if (hasFiber) highlights.push('High Fiber');
+    if (hasHealthyFats) highlights.push('Healthy Fats');
+    if (highlights.length === 0) highlights.push('Nutritious');
+    
+    return highlights;
   }
 
-  private getFlavorProfile(product: Product): string[] {
-    return product.flavorProfile || [];
+  /**
+   * Determine difficulty level
+   */
+  private static determineDifficulty(ingredients: any[], template: any): 'easy' | 'medium' | 'hard' {
+    const ingredientCount = ingredients.length;
+    const hasComplexIngredients = ingredients.some(ing => 
+      ing.productName.toLowerCase().includes('dough') ||
+      ing.productName.toLowerCase().includes('sauce')
+    );
+    
+    if (ingredientCount <= 3 && !hasComplexIngredients) return 'easy';
+    if (ingredientCount <= 5) return 'medium';
+    return 'hard';
   }
 
-  private getNutritionalInfo(product: Product) {
-    return product.nutritionalInfo || {};
+  /**
+   * Estimate preparation time
+   */
+  private static estimatePreparationTime(template: any, difficulty: 'easy' | 'medium' | 'hard'): number {
+    const baseTime = { easy: 10, medium: 20, hard: 35 };
+    return baseTime[difficulty];
   }
 
-  private getAllergens(product: Product): string[] {
-    return product.allergens || [];
+  /**
+   * Generate menu item name
+   */
+  private static generateMenuItemName(template: any, ingredients: any[]): string {
+    const mainIngredient = ingredients[0]?.productName || 'Special';
+    const category = template.category;
+    
+    const prefixes = {
+      main: ['Signature', 'Chef\'s', 'Gourmet'],
+      dessert: ['Decadent', 'Artisan', 'Premium'],
+      appetizer: ['Crispy', 'Fresh', 'Seasonal'],
+      beverage: ['Refreshing', 'Creamy', 'Vibrant'],
+      side: ['Roasted', 'Garden', 'Herb']
+    };
+    
+    const prefix = prefixes[category]?.[Math.floor(Math.random() * prefixes[category].length)] || 'Special';
+    return `${prefix} ${mainIngredient} ${category.charAt(0).toUpperCase() + category.slice(1)}`;
+  }
+
+  /**
+   * Generate description
+   */
+  private static generateDescription(
+    template: any,
+    ingredients: any[],
+    flavorProfile: string[]
+  ): string {
+    const mainIngredients = ingredients.slice(0, 2).map(ing => ing.productName).join(' and ');
+    const flavors = flavorProfile.slice(0, 2).join(', ');
+    
+    return `A delicious ${template.category} featuring ${mainIngredients}. ${flavors} flavors create a memorable dining experience.`;
+  }
+
+  /**
+   * Get seasonal availability
+   */
+  private static getSeasonalAvailability(ingredients: any[]): string[] {
+    const seasons = ['Spring', 'Summer', 'Fall', 'Winter'];
+    return seasons; // Simplified - in reality would check ingredient seasonality
+  }
+
+  /**
+   * Generate tags
+   */
+  private static generateTags(
+    template: any,
+    ingredients: any[],
+    context: MenuGenerationContext
+  ): string[] {
+    const tags = [template.category];
+    
+    // Add dietary tags
+    context.dietaryRestrictions.forEach(restriction => {
+      tags.push(restriction);
+    });
+    
+    // Add ingredient-based tags
+    if (ingredients.some(ing => ing.productName.toLowerCase().includes('organic'))) {
+      tags.push('organic');
+    }
+    
+    if (ingredients.some(ing => ing.productName.toLowerCase().includes('local'))) {
+      tags.push('local');
+    }
+    
+    return tags;
   }
 }

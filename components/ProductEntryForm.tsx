@@ -458,8 +458,8 @@ export function ProductEntryForm() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {state.products.map((product) => (
-                    <React.Fragment key={product.id}>
+                  {state.products.map((product, idx) => (
+                    <React.Fragment key={`${product.id}-${idx}`}>
                       <tr>
                         <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
                           {product.name}

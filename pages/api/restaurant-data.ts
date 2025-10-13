@@ -41,30 +41,14 @@ const ensureDataDirectory = () => {
 };
 
 const loadPersistentData = async () => {
-  if (upstashClient) {
-    // Upstash does not support wildcard list easily via REST, so we only support direct gets elsewhere
-    return {};
-  }
-  if (useKV && kv) {
-    try {
-      const allData: Record<string, any> = {};
-      const keys: string[] = await kv.keys('restaurant:*');
-      for (const key of keys) {
-        const id = key.replace('restaurant:', '');
-        const data = await kv.get(key);
-        if (data) allData[id] = data;
-      }
-      return allData;
-    } catch (error) {
-      console.error('Error loading from KV:', error);
-      return {};
-    }
-  }
+  // For demo purposes, always use local file storage to ensure mock data is loaded
   try {
     ensureDataDirectory();
     if (fs.existsSync(DATA_FILE_PATH)) {
       const fileContent = fs.readFileSync(DATA_FILE_PATH, 'utf8');
-      return JSON.parse(fileContent);
+      const parsed = JSON.parse(fileContent);
+      console.log('API: Successfully loaded data from file, keys:', Object.keys(parsed));
+      return parsed;
     }
   } catch (error) {
     console.error('Error loading from file:', error);
@@ -73,24 +57,14 @@ const loadPersistentData = async () => {
 };
 
 const savePersistentData = async (data: any) => {
-  if (upstashClient) {
-    // Save each restaurant key separately
-    for (const [rid, rdata] of Object.entries(data)) {
-      await upstashClient.set(`restaurant:${rid}`, rdata);
-    }
-    return;
+  // For demo purposes, always use local file storage to ensure data is saved
+  try {
+    ensureDataDirectory();
+    fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(data, null, 2));
+    console.log('API: Successfully saved data to file');
+  } catch (error) {
+    console.error('Error saving to file:', error);
   }
-  if (useKV && kv) {
-    for (const [rid, rdata] of Object.entries(data)) {
-      await kv.set(`restaurant:${rid}`, rdata);
-    }
-    return;
-  }
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('No KV configured in production. Connect Upstash or Vercel KV.');
-  }
-  ensureDataDirectory();
-  fs.writeFileSync(DATA_FILE_PATH, JSON.stringify(data, null, 2));
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -106,15 +80,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     try {
-      if (upstashClient) {
-        const data = await upstashClient.get(`restaurant:${restaurantId}`);
-        return res.status(200).json({ data: data ?? null });
-      }
-      if (useKV && kv) {
-        const data = await kv.get(`restaurant:${restaurantId}`);
-        return res.status(200).json({ data: data ?? null });
-      }
+      // For demo purposes, always use local file storage to ensure mock data is loaded
+      console.log('API: Using local file storage for demo data');
       const allData = await loadPersistentData();
+      console.log('API: Loaded data keys:', Object.keys(allData));
+      console.log('API: Looking for restaurantId:', restaurantId);
+      console.log('API: Data for restaurantId:', allData[restaurantId] ? 'exists' : 'missing');
+      if (allData[restaurantId]) {
+        console.log('API: Sales count:', allData[restaurantId].sales?.length || 0);
+      }
       return res.status(200).json({ data: allData[restaurantId] || null });
     } catch (error) {
       console.error('GET error:', error);
@@ -125,14 +99,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'POST') {
     try {
       const { data } = req.body;
-      if (upstashClient) {
-        await upstashClient.set(`restaurant:${restaurantId}`, data);
-        return res.status(200).json({ success: true });
-      }
-      if (useKV && kv) {
-        await kv.set(`restaurant:${restaurantId}`, data);
-        return res.status(200).json({ success: true });
-      }
+      
+      // For demo purposes, always use local file storage to ensure data is saved
+      console.log('API: Using local file storage for demo data save');
       const allData = await loadPersistentData();
       allData[restaurantId] = data;
       await savePersistentData(allData);

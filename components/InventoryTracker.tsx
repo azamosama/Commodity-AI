@@ -474,7 +474,7 @@ export function InventoryTracker() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {state.products.map((product) => {
+              {state.products.map((product, idx) => {
                 console.log('InventoryTracker: Rendering product:', product.name, product.id);
                 const item = state.inventory.find((i) => i.productId === product.id);
                 // Show true currentStock, even if negative or positive
@@ -486,7 +486,7 @@ export function InventoryTracker() {
                   .join(', ');
                 const purchased = calculateTotalUnits(product);
                 return (
-                  <tr key={product.id}>
+                  <tr key={`${product.id}-${idx}`}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{product.name}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex items-center space-x-2">

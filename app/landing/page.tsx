@@ -6,39 +6,39 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-white flex flex-col">
       <header className="w-full border-b bg-white/80 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-center">
           <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded bg-orange-500" />
-            <span className="text-xl font-semibold">FlavorPulse</span>
+            {/* Flavor Pulse Logo */}
+            <Link href="/landing">
+              <img 
+                src="/flavor-pulse-logo.png" 
+                alt="Flavor Pulse Logo" 
+                className="h-8 w-auto cursor-pointer hover:opacity-80 transition-opacity"
+              />
+            </Link>
           </div>
-          <nav className="hidden sm:flex items-center space-x-6 text-sm text-gray-600">
-            <Link href="/landing" className="hover:text-gray-900">Home</Link>
-            <Link href="/value-proposition" className="hover:text-gray-900">Why FlavorPulse</Link>
-            <Link href="/recipes" className="hover:text-gray-900">Product</Link>
-          </nav>
         </div>
       </header>
 
-      <section className="flex-1">
-        <div className="max-w-5xl mx-auto px-6 pt-16 pb-12 text-center">
-          <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-gray-900">
-            Profit-first restaurant operations, powered by live costs and AI.
+      <section className="flex-1 flex items-center justify-center">
+        <div className="max-w-5xl mx-auto px-6 text-center">
+          <h1 className="text-5xl sm:text-7xl font-extrabold tracking-tight text-gray-900 mb-8">
+            Flavor Pulse: Your AI Restaurant Consultant
           </h1>
-          <p className="mt-4 text-lg text-gray-600">
-            FlavorPulse helps restaurants track real-time ingredient costs, calculate recipe profitability,
-            prevent waste, and forecast demand — all in one place.
+          <p className="text-xl sm:text-2xl text-gray-600 mb-12 max-w-3xl mx-auto">
+            Transform Your Restaurant's Bottom Line with AI-Powered Cost Management
           </p>
 
-          <div className="mt-10 flex items-center justify-center gap-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <Link
               href="/signup"
-              className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-6 py-3 text-white font-medium shadow hover:bg-indigo-700"
+              className="inline-flex items-center justify-center rounded-md bg-indigo-600 px-8 py-4 text-lg text-white font-medium shadow hover:bg-indigo-700 transition-colors"
             >
               Sign Up
             </Link>
             <Link
-              href="/"
-              className="inline-flex items-center justify-center rounded-md border border-gray-300 px-6 py-3 text-gray-800 font-medium hover:bg-gray-50"
+              href="/demo"
+              className="inline-flex items-center justify-center rounded-md border border-gray-300 px-8 py-4 text-lg text-gray-800 font-medium hover:bg-gray-50 transition-colors"
             >
               Try Demo
             </Link>

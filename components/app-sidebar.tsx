@@ -1,6 +1,6 @@
 "use client"
 
-import { BarChart3, Building2, Calculator, Home, Package, TrendingUp, Database, Upload, Download, ChefHat } from "lucide-react"
+import { BarChart3, Building2, Calculator, Home, Package, TrendingUp, Database, Upload, Download, ChefHat, Target, RefreshCw } from "lucide-react"
 import Link from "next/link"
 
 import {
@@ -37,6 +37,18 @@ const items = [
     title: "Analytics",
     url: "/analytics",
     icon: BarChart3,
+    hidden: false,
+  },
+  {
+    title: "Profitability Analysis",
+    url: "/profitability",
+    icon: Target,
+    hidden: false,
+  },
+  {
+    title: "Substitution Engine",
+    url: "/substitutions",
+    icon: RefreshCw,
     hidden: false,
   },
   {
