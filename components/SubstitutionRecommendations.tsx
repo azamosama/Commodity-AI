@@ -142,13 +142,17 @@ export function SubstitutionRecommendations() {
   const fetchData = async () => {
     try {
       setRefreshing(true);
-        const response = await fetch('/api/substitution-recommendations?restaurantId=default&includeOptimization=true&minSavings=0.10&generateMenuItems=true&menuCount=5&targetCostMin=2.00&targetCostMax=8.00&targetProfitMargin=40');
+      console.log('Fetching substitution data...');
+      const response = await fetch('/api/substitution-recommendations?restaurantId=default&includeOptimization=true&minSavings=0.10&generateMenuItems=true&menuCount=5&targetCostMin=2.00&targetCostMax=8.00&targetProfitMargin=40');
+      
+      console.log('Response status:', response.status);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const result = await response.json();
+      console.log('Substitution data received:', result);
       setData(result);
       setError(null);
     } catch (err) {

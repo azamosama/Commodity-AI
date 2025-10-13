@@ -123,13 +123,17 @@ export function ProfitabilityDashboard() {
   const fetchData = async () => {
     try {
       setRefreshing(true);
+      console.log('Fetching profitability data...');
       const response = await fetch('/api/profitability-analysis?restaurantId=default&includeRecommendations=true');
+      
+      console.log('Response status:', response.status);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const result = await response.json();
+      console.log('Profitability data received:', result);
       setData(result);
       setError(null);
     } catch (err) {
