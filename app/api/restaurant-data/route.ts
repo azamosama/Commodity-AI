@@ -3,8 +3,16 @@ import fs from 'fs';
 import path from 'path';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 const DATA_FILE_PATH = path.join(process.cwd(), 'data', 'restaurant-data.json');
+
+// For Netlify, also try alternative paths
+const ALTERNATIVE_PATHS = [
+  path.join('/tmp', 'restaurant-data.json'),
+  path.join(process.cwd(), 'restaurant-data.json'),
+  path.join(process.cwd(), 'data', 'restaurant-data.json')
+];
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -50,19 +58,46 @@ export async function POST(request: NextRequest) {
 }
 
 const loadPersistentData = async () => {
-  // For demo purposes, always use local file storage to ensure mock data is loaded
-  try {
-    ensureDataDirectory();
-    if (fs.existsSync(DATA_FILE_PATH)) {
-      const fileContent = fs.readFileSync(DATA_FILE_PATH, 'utf8');
-      const parsed = JSON.parse(fileContent);
-      console.log('API: Successfully loaded data from file, keys:', Object.keys(parsed));
-      return parsed;
+  // Try multiple paths for different deployment environments
+  const pathsToTry = [DATA_FILE_PATH, ...ALTERNATIVE_PATHS];
+  
+  for (const filePath of pathsToTry) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        const parsed = JSON.parse(fileContent);
+        console.log(`API: Successfully loaded data from ${filePath}, keys:`, Object.keys(parsed));
+        return parsed;
+      }
+    } catch (error) {
+      console.error(`Error loading from ${filePath}:`, error);
     }
-  } catch (error) {
-    console.error('Error loading from file:', error);
   }
-  return {};
+  
+  // If no file found, return mock data for demo
+  console.log('API: No data file found, returning mock data');
+  return {
+    default: {
+      products: [
+        { id: 'strawberries-1', name: 'Strawberries', quantity: 1, unit: 'lb', cost: 5.99, category: 'Fruit' },
+        { id: 'chocolate-1', name: 'Chocolate', quantity: 1, unit: 'lb', cost: 8.99, category: 'Dessert' },
+        { id: 'cups-1', name: 'Cups', quantity: 1, unit: 'each', cost: 0.25, category: 'Supplies' }
+      ],
+      recipes: [
+        {
+          id: 'chocolate-strawberries',
+          name: 'Chocolate Strawberries',
+          ingredients: [
+            { productId: 'strawberries-1', quantity: 1, unit: 'lb' },
+            { productId: 'chocolate-1', quantity: 0.5, unit: 'lb' }
+          ]
+        }
+      ],
+      sales: [
+        { id: 'sale-1', recipeName: 'Chocolate Strawberries', salePrice: 12.99, quantity: 1, date: new Date().toISOString() }
+      ]
+    }
+  };
 };
 
 const savePersistentData = async (data: any) => {

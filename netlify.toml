@@ -14,6 +14,8 @@
 # Plugins
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+  [plugins.inputs]
+    functions_dir = ".next/server/app"
 
 # Headers for security
 [[headers]]
