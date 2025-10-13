@@ -9,13 +9,10 @@
   [build.environment]
     NODE_VERSION = "18"
     NPM_FLAGS = "--version"
-    NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
-# Redirects for Next.js
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+# Plugins
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 # Headers for security
 [[headers]]
