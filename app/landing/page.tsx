@@ -65,7 +65,6 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-6 py-6 text-sm text-gray-500 flex items-center justify-between">
           <span>© {new Date().getFullYear()} FlavorPulse</span>
           <div className="space-x-4">
-            <Link href="/questions" className="hover:text-gray-700">FAQ</Link>
             <a href="mailto:info@flavorpulse.net" className="hover:text-gray-700">Contact</a>
           </div>
         </div>

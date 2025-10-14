@@ -41,25 +41,45 @@ export default function SignupPage() {
 
         {!submitted ? (
           <form
-            name="flavorpulse-signup"
-            method="POST"
-            data-netlify="true"
-            action="/thank-you"
             className="mt-8 grid grid-cols-1 gap-5"
             onSubmit={(e) => {
               e.preventDefault();
-              setSubmitted(true);
-              // Submit to Netlify Forms
               const form = e.target as HTMLFormElement;
               const formData = new FormData(form);
-              fetch('/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams(formData as any).toString()
-              });
+              
+              // Create email content
+              const company = formData.get('company') as string;
+              const name = formData.get('name') as string;
+              const email = formData.get('email') as string;
+              const phone = formData.get('phone') as string;
+              const locations = formData.get('locations') as string;
+              const referrer = formData.get('referrer') as string;
+              const restaurant_type = formData.get('restaurant_type') as string;
+              const notes = formData.get('notes') as string;
+              
+              const subject = `New Signup: ${company}`;
+              const body = `New signup from Flavor Pulse website:
+
+Company: ${company}
+Contact Name: ${name}
+Email: ${email}
+Phone: ${phone || 'Not provided'}
+Number of Locations: ${locations || 'Not provided'}
+How they heard about us: ${referrer}
+Restaurant Type: ${restaurant_type}
+Additional Notes: ${notes || 'None'}
+
+---
+Sent from Flavor Pulse signup form`;
+
+              // Create mailto link
+              const mailtoLink = `mailto:info@flavorpulse.net?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+              
+              // Open email client
+              window.location.href = mailtoLink;
+              setSubmitted(true);
             }}
           >
-            <input type="hidden" name="form-name" value="flavorpulse-signup" />
 
             <div>
               <label className="block text-sm font-medium text-gray-700">Company Name</label>
@@ -126,7 +146,7 @@ export default function SignupPage() {
               Submit
             </button>
 
-            <p className="text-xs text-gray-500">This form is processed by Netlify Forms. Notifications can be set to forward to info@flavorpulse.net.</p>
+            <p className="text-xs text-gray-500">This form will open your email client to send the information to info@flavorpulse.net.</p>
           </form>
         ) : (
           <div className="mt-10 rounded border p-6 bg-green-50 text-green-800">
