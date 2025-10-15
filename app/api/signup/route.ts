@@ -4,8 +4,6 @@ import { Resend } from 'resend';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -38,6 +36,7 @@ Sent from Flavor Pulse signup form`;
     // Send email using Resend
     if (process.env.RESEND_API_KEY) {
       try {
+        const resend = new Resend(process.env.RESEND_API_KEY);
         const { data, error } = await resend.emails.send({
           from: 'Flavor Pulse <noreply@flavorpulse.net>',
           to: ['info@flavorpulse.net'],
