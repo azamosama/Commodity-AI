@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Resend } from 'resend';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,12 +27,7 @@ Additional Notes: ${notes || 'None'}
 ---
 Sent from Flavor Pulse signup form`;
 
-    // For now, we'll just log the email content
-    // In a production environment, you would integrate with an email service like:
-    // - SendGrid
-    // - AWS SES
-    // - Nodemailer with SMTP
-    // - Resend
+    // Log the email content for debugging
     console.log('=== NEW SIGNUP ===');
     console.log('To: info@flavorpulse.net');
     console.log(`Subject: ${subject}`);
@@ -37,14 +35,30 @@ Sent from Flavor Pulse signup form`;
     console.log(emailBody);
     console.log('==================');
 
-    // TODO: Replace this with actual email sending logic
-    // Example with a service like Resend:
-    // await resend.emails.send({
-    //   from: 'noreply@flavorpulse.net',
-    //   to: 'info@flavorpulse.net',
-    //   subject: subject,
-    //   text: emailBody,
-    // });
+    // Send email using Resend
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const { data, error } = await resend.emails.send({
+          from: 'Flavor Pulse <noreply@flavorpulse.net>',
+          to: ['info@flavorpulse.net'],
+          subject: subject,
+          text: emailBody,
+          replyTo: email, // Allow replies to go directly to the customer
+        });
+
+        if (error) {
+          console.error('Resend error:', error);
+          // Still return success to user, but log the error
+        } else {
+          console.log('Email sent successfully:', data);
+        }
+      } catch (emailError) {
+        console.error('Email sending failed:', emailError);
+        // Still return success to user, but log the error
+      }
+    } else {
+      console.warn('RESEND_API_KEY not configured - email not sent');
+    }
 
     return NextResponse.json({ success: true, message: 'Signup submitted successfully' });
 
