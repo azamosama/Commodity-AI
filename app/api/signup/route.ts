@@ -38,7 +38,7 @@ Sent from Flavor Pulse signup form`;
       try {
         const resend = new Resend(process.env.RESEND_API_KEY);
         const { data, error } = await resend.emails.send({
-          from: 'Flavor Pulse <noreply@flavorpulse.net>',
+          from: 'Flavor Pulse <onboarding@resend.dev>',
           to: ['info@flavorpulse.net'],
           subject: subject,
           text: emailBody,
