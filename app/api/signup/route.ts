@@ -39,6 +39,7 @@ Sent from Flavor Pulse signup form`;
         const resend = new Resend(process.env.RESEND_API_KEY);
         console.log('Attempting to send email with Resend...');
         
+        // Send to business email
         const { data, error } = await resend.emails.send({
           from: 'Flavor Pulse <onboarding@resend.dev>',
           to: ['info@flavorpulse.net'],
@@ -47,13 +48,46 @@ Sent from Flavor Pulse signup form`;
           replyTo: email, // Allow replies to go directly to the customer
         });
 
+        // Also send a copy to the user for testing
+        const { data: userData, error: userError } = await resend.emails.send({
+          from: 'Flavor Pulse <onboarding@resend.dev>',
+          to: [email],
+          subject: 'Thank you for signing up with Flavor Pulse!',
+          text: `Hi ${name},
+
+Thank you for your interest in Flavor Pulse! We've received your signup request and will be in touch shortly.
+
+Here's a summary of your submission:
+- Company: ${company}
+- Contact: ${name}
+- Email: ${email}
+- Phone: ${phone || 'Not provided'}
+- Locations: ${locations || 'Not provided'}
+- Restaurant Type: ${restaurant_type}
+
+We'll review your information and get back to you within 24 hours.
+
+Best regards,
+The Flavor Pulse Team
+
+---
+This email was sent to confirm your signup. If you didn't request this, please ignore this email.`,
+        });
+
         if (error) {
-          console.error('Resend error:', error);
+          console.error('Resend error (business email):', error);
           console.error('Error details:', JSON.stringify(error, null, 2));
-          // Still return success to user, but log the error
         } else {
-          console.log('Email sent successfully:', data);
-          console.log('Email ID:', data?.id);
+          console.log('Business email sent successfully:', data);
+          console.log('Business email ID:', data?.id);
+        }
+
+        if (userError) {
+          console.error('Resend error (user email):', userError);
+          console.error('User error details:', JSON.stringify(userError, null, 2));
+        } else {
+          console.log('User email sent successfully:', userData);
+          console.log('User email ID:', userData?.id);
         }
       } catch (emailError) {
         console.error('Email sending failed:', emailError);
