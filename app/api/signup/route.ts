@@ -37,6 +37,8 @@ Sent from Flavor Pulse signup form`;
     if (process.env.RESEND_API_KEY) {
       try {
         const resend = new Resend(process.env.RESEND_API_KEY);
+        console.log('Attempting to send email with Resend...');
+        
         const { data, error } = await resend.emails.send({
           from: 'Flavor Pulse <onboarding@resend.dev>',
           to: ['info@flavorpulse.net'],
@@ -47,16 +49,20 @@ Sent from Flavor Pulse signup form`;
 
         if (error) {
           console.error('Resend error:', error);
+          console.error('Error details:', JSON.stringify(error, null, 2));
           // Still return success to user, but log the error
         } else {
           console.log('Email sent successfully:', data);
+          console.log('Email ID:', data?.id);
         }
       } catch (emailError) {
         console.error('Email sending failed:', emailError);
+        console.error('Error stack:', emailError.stack);
         // Still return success to user, but log the error
       }
     } else {
       console.warn('RESEND_API_KEY not configured - email not sent');
+      console.warn('Available env vars:', Object.keys(process.env).filter(key => key.includes('RESEND')));
     }
 
     return NextResponse.json({ success: true, message: 'Signup submitted successfully' });
