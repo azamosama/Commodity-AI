@@ -42,12 +42,12 @@ export default function SignupPage() {
         {!submitted ? (
           <form
             className="mt-8 grid grid-cols-1 gap-5"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               const form = e.target as HTMLFormElement;
               const formData = new FormData(form);
               
-              // Create email content
+              // Get form data
               const company = formData.get('company') as string;
               const name = formData.get('name') as string;
               const email = formData.get('email') as string;
@@ -57,27 +57,34 @@ export default function SignupPage() {
               const restaurant_type = formData.get('restaurant_type') as string;
               const notes = formData.get('notes') as string;
               
-              const subject = `New Signup: ${company}`;
-              const body = `New signup from Flavor Pulse website:
+              try {
+                // Submit to API
+                const response = await fetch('/api/signup', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    company,
+                    name,
+                    email,
+                    phone,
+                    locations,
+                    referrer,
+                    restaurant_type,
+                    notes,
+                  }),
+                });
 
-Company: ${company}
-Contact Name: ${name}
-Email: ${email}
-Phone: ${phone || 'Not provided'}
-Number of Locations: ${locations || 'Not provided'}
-How they heard about us: ${referrer}
-Restaurant Type: ${restaurant_type}
-Additional Notes: ${notes || 'None'}
-
----
-Sent from Flavor Pulse signup form`;
-
-              // Create mailto link
-              const mailtoLink = `mailto:info@flavorpulse.net?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-              
-              // Open email client
-              window.location.href = mailtoLink;
-              setSubmitted(true);
+                if (response.ok) {
+                  setSubmitted(true);
+                } else {
+                  alert('There was an error submitting your form. Please try again.');
+                }
+              } catch (error) {
+                console.error('Error submitting form:', error);
+                alert('There was an error submitting your form. Please try again.');
+              }
             }}
           >
 
@@ -145,8 +152,6 @@ Sent from Flavor Pulse signup form`;
             >
               Submit
             </button>
-
-            <p className="text-xs text-gray-500">This form will open your email client to send the information to info@flavorpulse.net.</p>
           </form>
         ) : (
           <div className="mt-10 rounded border p-6 bg-green-50 text-green-800">
