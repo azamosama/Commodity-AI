@@ -21,12 +21,12 @@ import {
 interface ProfitabilityAnalysis {
   recipeId: string;
   recipeName: string;
-  currentCostPerServing: number;
+  costPerServing: number;
   salePrice: number;
   profitMargin: number;
   profitMarginPercentage: number;
   isProfitable: boolean;
-  profitabilityStatus: 'high' | 'medium' | 'low' | 'unprofitable';
+  profitabilityStatus: 'high' | 'medium' | 'low' | 'unprofitable' | 'profitable';
   costBreakdown: IngredientCostBreakdown[];
   recommendations: ProfitabilityRecommendation[];
   lastUpdated: string;
@@ -69,19 +69,21 @@ interface AlternativeOption {
 }
 
 interface MenuOptimizationSuggestion {
-  type: 'new_recipe' | 'seasonal_adjustment' | 'cost_reduction';
-  name: string;
+  id: string;
+  type: 'new_item' | 'new_recipe' | 'seasonal_adjustment' | 'cost_reduction';
+  title: string;
   description: string;
-  estimatedCostPerServing: number;
+  estimatedCost: number;
   suggestedPrice: number;
-  estimatedProfitMargin: number;
+  profitMargin: number;
   ingredients: {
     productId: string;
     name: string;
-    quantity: number;
-    unit: string;
     currentPrice: number;
+    unit: string;
   }[];
+  preparationTime?: number;
+  difficulty?: string;
   seasonalFactors?: {
     ingredient: string;
     priceTrend: 'increasing' | 'decreasing' | 'stable';
@@ -124,7 +126,7 @@ export function ProfitabilityDashboard() {
     try {
       setRefreshing(true);
       console.log('Fetching profitability data...');
-      const response = await fetch('/api/profitability-analysis?restaurantId=default&includeRecommendations=true');
+      const response = await fetch(`/api/profitability-analysis?restaurantId=default&includeRecommendations=true&_t=${Date.now()}`);
       
       console.log('Response status:', response.status);
       
@@ -154,6 +156,7 @@ export function ProfitabilityDashboard() {
       case 'high': return 'text-green-600 bg-green-100';
       case 'medium': return 'text-blue-600 bg-blue-100';
       case 'low': return 'text-yellow-600 bg-yellow-100';
+      case 'profitable': return 'text-green-600 bg-green-100';
       case 'unprofitable': return 'text-red-600 bg-red-100';
       default: return 'text-gray-600 bg-gray-100';
     }
@@ -257,10 +260,10 @@ export function ProfitabilityDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {((data.summary.averageProfitMargin || 0) * 100).toFixed(1)}%
+              {(data.summary.averageProfitMargin || 0).toFixed(1)}%
             </div>
             <p className="text-xs text-muted-foreground">
-              {data.summary.averageProfitMargin >= 0.25 ? 'Healthy' : 'Needs improvement'}
+              {data.summary.averageProfitMargin >= 25 ? 'Healthy' : 'Needs improvement'}
             </p>
           </CardContent>
         </Card>
@@ -328,7 +331,7 @@ export function ProfitabilityDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600">Cost per Serving</div>
-                      <div className="text-xl font-bold">${(analysis.currentCostPerServing || 0).toFixed(2)}</div>
+                      <div className="text-xl font-bold">${(analysis.costPerServing || 0).toFixed(2)}</div>
         </div>
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600">Sale Price</div>
@@ -337,7 +340,7 @@ export function ProfitabilityDashboard() {
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600">Profit Margin</div>
                       <div className={`text-xl font-bold ${analysis.isProfitable ? 'text-green-600' : 'text-red-600'}`}>
-                        {((analysis.profitMarginPercentage || 0) * 100).toFixed(1)}%
+                        {(analysis.profitMarginPercentage || 0).toFixed(1)}%
         </div>
         </div>
       </div>
@@ -360,7 +363,7 @@ export function ProfitabilityDashboard() {
                             )}
                           </div>
                           <div className="text-right">
-                            <div className="font-medium">${(ingredient.costPerServing || 0).toFixed(2)}</div>
+                            <div className="font-medium">${(ingredient.totalCost || 0).toFixed(2)}</div>
                             {ingredient.priceChangePercentage && (
                               <div className={`text-xs flex items-center ${
                                 ingredient.priceChangePercentage > 0 ? 'text-red-600' : 'text-green-600'
@@ -475,7 +478,7 @@ export function ProfitabilityDashboard() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <CardTitle className="text-lg">{suggestion.name}</CardTitle>
+                      <CardTitle className="text-lg">{suggestion.title}</CardTitle>
                       <CardDescription>{suggestion.description}</CardDescription>
                     </div>
                     <Badge className="text-blue-600 bg-blue-100">
@@ -487,7 +490,7 @@ export function ProfitabilityDashboard() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600">Est. Cost</div>
-                      <div className="text-xl font-bold">${(suggestion.estimatedCostPerServing || 0).toFixed(2)}</div>
+                      <div className="text-xl font-bold">${(suggestion.estimatedCost || 0).toFixed(2)}</div>
                     </div>
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600">Suggested Price</div>
@@ -496,7 +499,7 @@ export function ProfitabilityDashboard() {
                     <div className="text-center p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600">Est. Profit Margin</div>
                       <div className="text-xl font-bold text-green-600">
-                        {((suggestion.estimatedProfitMargin || 0) * 100).toFixed(1)}%
+                        {(suggestion.profitMargin || 0).toFixed(1)}%
                       </div>
                     </div>
                   </div>

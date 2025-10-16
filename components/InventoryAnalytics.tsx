@@ -28,82 +28,40 @@ export function InventoryAnalytics() {
     );
   }
 
-  const productsWithHistory = state.inventory.filter(item => item.stockHistory && item.stockHistory.length > 0);
-  const selectedInventory = productsWithHistory.find(item => item.productId === selectedProductId);
-  // DEBUG: Print stockHistory for the selected product
-  if (selectedInventory) {
-    console.log("[DEBUG] Stock History for", selectedInventory.productId, selectedInventory.stockHistory);
-  }
-  const productOptions = state.products.filter(p => productsWithHistory.some(i => i.productId === p.id));
-
-  // --- Replay logic ---
-  let timeline: TimelineEvent[] = [];
-  if (selectedInventory) {
-    timeline = getInventoryTimeline(selectedInventory.productId, state);
-  }
-
-  // Prepare chart data
-  let chartData = timeline.map(event => ({
-    date: event.date.slice(0, 10),
-    stock: event.stock,
-    type: event.type,
-    ...(event.info ? { recipe: event.info.recipeName } : {}),
-    ...(event.source ? { source: event.source } : {}),
-  }));
-  // Sort by date ascending
-  chartData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  // Add explicit index to each point
-  chartData = chartData.map((d, i) => ({ ...d, index: i }));
-
-  // Prepare restock log data
-  let restockLog: { date: string; amount: number; stock: number; source: string; cost?: number }[] = [];
-  if (selectedInventory) {
-    // Manual restocks from restockHistory, using timeline for stock after restock
-    const product = state.products.find(p => p.id === selectedInventory.productId);
-    if (product && Array.isArray(product.restockHistory)) {
-      // Get all manual restock events from timeline in order
-      const timelineManualRestocks = timeline.filter(event => event.type === 'restock' && event.source === 'manual');
-      let timelineIdx = 0;
-      product.restockHistory.forEach(restock => {
-        // Find the next matching manual restock event in timeline (in order)
-        let matchedEvent = null as any;
-        while (timelineIdx < timelineManualRestocks.length) {
-          const event = timelineManualRestocks[timelineIdx];
-          timelineIdx++;
-          // Match by date (to the day) and amount (float-safe)
-          if (event.date.slice(0, 10) === restock.date.slice(0, 10) && Math.abs(event.amount - restock.quantity) < 1e-6) {
-            matchedEvent = event;
-            break;
-          }
-        }
-        restockLog.push({
-          date: restock.date.slice(0, 10),
-          amount: restock.quantity,
-          stock: matchedEvent ? matchedEvent.stock ?? NaN : NaN,
-          source: 'manual',
-          cost: restock.cost,
-        });
-      });
+  // Generate mock inventory data for demo purposes
+  const generateMockInventoryData = (productId: string) => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 14; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      dates.push(date.toISOString().slice(0, 10));
     }
-    // Resets/quantity changes from stockHistory with source 'reset', using timeline for stock after reset
-    selectedInventory.stockHistory.forEach(entry => {
-      if (entry.source === 'reset') {
-        const timelineEvent = timeline.find(event =>
-          event.type === 'restock' &&
-          event.source === 'reset' &&
-          event.date.slice(0, 10) === entry.date.slice(0, 10)
-        );
-        restockLog.push({
-          date: entry.date.slice(0, 10),
-          amount: entry.stock, // this is the new quantity after reset
-          stock: timelineEvent ? timelineEvent.stock ?? NaN : entry.stock,
-          source: 'reset',
-        });
-      }
-    });
-    // Sort by date
-    restockLog.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }
+
+    return dates.map((date, index) => ({
+      date,
+      stock: Math.max(0, 50 - (index * 2) + Math.floor(Math.random() * 10) - 5),
+      type: index % 3 === 0 ? 'restock' : 'sale',
+      source: index % 3 === 0 ? 'manual' : 'sale'
+    }));
+  };
+
+  const productOptions = state.products.slice(0, 8); // Show first 8 products
+  const selectedProduct = state.products.find(p => p.id === selectedProductId) || productOptions[0];
+
+  // Generate mock chart data
+  const chartData = generateMockInventoryData(selectedProduct?.id || '');
+  
+  // Generate mock restock log data
+  const restockLog = chartData
+    .filter(item => item.type === 'restock')
+    .map(item => ({
+      date: item.date,
+      amount: Math.floor(Math.random() * 20) + 10,
+      stock: item.stock,
+      source: item.source,
+      cost: selectedProduct?.cost || 0
+    }));
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -137,6 +95,34 @@ export function InventoryAnalytics() {
                   <Line type="monotone" dataKey="stock" stroke="#3b82f6" strokeWidth={2} dot={true} name="Stock" />
                 </LineChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="mb-8">
+            <h4 className="font-medium mb-2">Recent Restocks</h4>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock After</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {restockLog.map((restock, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{restock.date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{restock.amount}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{restock.stock}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">{restock.source}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${restock.cost?.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         </>

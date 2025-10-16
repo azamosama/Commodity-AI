@@ -15,6 +15,7 @@ import { ExpenseTracker } from '@/components/ExpenseTracker';
 import { InventoryTracker } from '@/components/InventoryTracker';
 import { ProfitabilityDashboard } from '@/components/ProfitabilityDashboard';
 import { CostSavingRecommendations } from '@/components/CostSavingRecommendations';
+import { DataSyncStatus } from '@/components/DataSyncStatus';
 
 interface Restaurant {
   id: string;
@@ -253,6 +254,12 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-6">
+            {/* Data Sync Status */}
+            <section>
+              <h2 className="text-xl font-semibold mb-4">Data Management</h2>
+              <DataSyncStatus />
+            </section>
+
             <section>
               <h2 className="text-xl font-semibold mb-4">Product Management</h2>
               <ProductEntryForm />

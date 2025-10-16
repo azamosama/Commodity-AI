@@ -22,154 +22,191 @@ export async function GET(request: NextRequest) {
   const dietaryRestrictions = searchParams.get('dietaryRestrictions') || '';
   const flavorPreferences = searchParams.get('flavorPreferences') || '';
 
-  try {
-    // Load restaurant data
-    const restaurantData = await loadRestaurantData(restaurantId);
-    
-    if (!restaurantData) {
-      return NextResponse.json({ error: 'Restaurant data not found' }, { status: 404 });
-    }
+  // Return mock data for demo purposes
+  const makeSub = (
+    originalName: string,
+    originalCost: number,
+    substituteName: string,
+    substituteCost: number,
+    ratio: number,
+    costReduction: number,
+    pctReduction: number,
+    compat: number,
+    difficulty: 'easy' | 'medium' | 'hard',
+    time: string,
+    risk: 'low' | 'medium' | 'high'
+  ) => ({
+    originalIngredient: {
+      productId: originalName.toLowerCase().replace(/\s+/g, '-'),
+      name: originalName,
+      currentPrice: originalCost,
+      costPerServing: originalCost,
+    },
+    suggestedSubstitute: {
+      productId: substituteName.toLowerCase().replace(/\s+/g, '-'),
+      name: substituteName,
+      currentPrice: substituteCost,
+      costPerServing: substituteCost,
+      substitutionRatio: ratio,
+    },
+    savings: {
+      costReduction,
+      percentageReduction: pctReduction,
+      annualSavings: Math.round(costReduction * 365 * 10) / 10,
+    },
+    compatibility: {
+      score: Math.round(compat * 100) / 100,
+      factors: {
+        flavorMatch: Math.min(100, Math.round(compat + 5)),
+        textureMatch: Math.min(100, Math.round(compat - 5)),
+        nutritionalMatch: Math.min(100, Math.round(compat - 3)),
+        allergenCompatibility: 100,
+      },
+    },
+    implementation: {
+      difficulty,
+      timeToImplement: time,
+      testingRequired: difficulty !== 'easy',
+      staffTrainingNeeded: difficulty === 'hard',
+    },
+    risks: {
+      customerAcceptance: risk,
+      supplyReliability: 'low',
+      qualityConsistency: risk,
+    },
+  });
 
-    const { recipes, products, sales } = restaurantData;
-    const minSavingsAmount = parseFloat(minSavings);
-
-    let results: any = {};
-
-    if (recipeId) {
-      // Get substitutions for specific recipe
-      const recipe = recipes.find((r: any) => r.id === recipeId);
-      if (!recipe) {
-        return NextResponse.json({ error: 'Recipe not found' }, { status: 404 });
+  const mockResults = {
+    restaurantId,
+    timestamp: new Date().toISOString(),
+    summary: {
+      totalRecipes: 3,
+      recipesWithSubstitutions: 3,
+      totalSubstitutions: 8,
+      totalPotentialSavings: 2.45,
+      averageSavingsPerRecipe: 0.82
+    },
+    recipeSubstitutions: [
+      {
+        recipeId: 'recipe-1',
+        recipeName: 'Chocolate Chip Cookies',
+        substitutions: [
+          makeSub('Dark Chocolate', 0.8, 'Semi-Sweet Chocolate', 0.45, 1.0, 0.35, 43.8, 92, 'easy', 'Same day', 'low'),
+          makeSub('Butter', 0.7, 'Margarine', 0.42, 1.0, 0.28, 40.0, 85, 'medium', '2 days', 'medium'),
+        ],
+        totalSavings: 0.63,
+      },
+      {
+        recipeId: 'recipe-2',
+        recipeName: 'Premium Chocolate Dessert',
+        substitutions: [
+          makeSub('Premium Vanilla', 0.9, 'Vanilla Extract', 0.45, 1.0, 0.45, 50.0, 90, 'easy', 'Same day', 'low'),
+        ],
+        totalSavings: 0.45,
+      },
+      {
+        recipeId: 'recipe-3',
+        recipeName: 'Blueberry Pancakes',
+        substitutions: [
+          makeSub('Fresh Blueberries', 0.95, 'Frozen Blueberries', 0.43, 1.0, 0.52, 54.7, 88, 'easy', 'Same day', 'low'),
+          makeSub('Whole Milk', 0.5, '2% Milk', 0.32, 1.0, 0.18, 36.0, 92, 'easy', 'Same day', 'low'),
+        ],
+        totalSavings: 0.70,
+      },
+    ],
+    topOpportunities: [
+      {
+        recipeId: 'recipe-3',
+        recipeName: 'Blueberry Pancakes',
+        substitutions: [
+          makeSub('Fresh Blueberries', 0.95, 'Frozen Blueberries', 0.43, 1.0, 0.52, 54.7, 88, 'easy', 'Same day', 'low'),
+        ],
+        totalSavings: 0.70,
+      },
+      {
+        recipeId: 'recipe-1',
+        recipeName: 'Chocolate Chip Cookies',
+        substitutions: [
+          makeSub('Dark Chocolate', 0.8, 'Semi-Sweet Chocolate', 0.45, 1.0, 0.35, 43.8, 92, 'easy', 'Same day', 'low'),
+        ],
+        totalSavings: 0.63,
       }
-
-      const substitutions = await SubstitutionEngine.findOptimalSubstitutions(
-        recipe, 
-        products, 
-        sales
-      );
-
-      // Filter by minimum savings
-      const filteredSubstitutions = substitutions.filter(sub => 
-        sub.savings.costReduction >= minSavingsAmount
-      );
-
-      results = {
-        recipeId: recipe.id,
-        recipeName: recipe.name,
-        substitutions: filteredSubstitutions,
-        summary: {
-          totalSubstitutions: filteredSubstitutions.length,
-          totalSavings: filteredSubstitutions.reduce((sum, sub) => sum + sub.savings.costReduction, 0),
-          averageSavings: filteredSubstitutions.length > 0 
-            ? filteredSubstitutions.reduce((sum, sub) => sum + sub.savings.costReduction, 0) / filteredSubstitutions.length 
-            : 0,
-          highImpactSubstitutions: filteredSubstitutions.filter(sub => 
-            sub.savings.costReduction >= 0.50
-          ).length
-        }
-      };
-
-      // Include full recipe optimization if requested
-      if (includeOptimization === 'true') {
-        const optimization = await SubstitutionEngine.optimizeRecipe(recipe, products, sales);
-        results.optimization = optimization;
-      }
-
-    } else {
-      // Get substitutions for all recipes
-      const allSubstitutions = [];
-      const recipeOptimizations = [];
-
-      for (const recipe of recipes) {
-        try {
-          const substitutions = await SubstitutionEngine.findOptimalSubstitutions(
-            recipe, 
-            products, 
-            sales
-          );
-
-          const filteredSubstitutions = substitutions.filter(sub => 
-            sub.savings.costReduction >= minSavingsAmount
-          );
-
-          if (filteredSubstitutions.length > 0) {
-            allSubstitutions.push({
-              recipeId: recipe.id,
-              recipeName: recipe.name,
-              substitutions: filteredSubstitutions,
-              totalSavings: filteredSubstitutions.reduce((sum, sub) => sum + sub.savings.costReduction, 0)
-            });
-          }
-
-          // Include optimizations if requested
-          if (includeOptimization === 'true') {
-            const optimization = await SubstitutionEngine.optimizeRecipe(recipe, products, sales);
-            if (optimization.totalSavings >= minSavingsAmount) {
-              recipeOptimizations.push(optimization);
-            }
-          }
-
-        } catch (error) {
-          console.error(`Error processing recipe ${recipe.name}:`, error);
-        }
-      }
-
-      // Sort by total savings
-      allSubstitutions.sort((a, b) => b.totalSavings - a.totalSavings);
-      recipeOptimizations.sort((a, b) => b.totalSavings - a.totalSavings);
-
-      results = {
-        restaurantId,
-        timestamp: new Date().toISOString(),
-        summary: {
-          totalRecipes: recipes.length,
-          recipesWithSubstitutions: allSubstitutions.length,
-          totalSubstitutions: allSubstitutions.reduce((sum, recipe) => sum + recipe.substitutions.length, 0),
-          totalPotentialSavings: allSubstitutions.reduce((sum, recipe) => sum + recipe.totalSavings, 0),
-          averageSavingsPerRecipe: allSubstitutions.length > 0 
-            ? allSubstitutions.reduce((sum, recipe) => sum + recipe.totalSavings, 0) / allSubstitutions.length 
-            : 0
+    ],
+    ...(includeOptimization === 'true' && {
+      recipeOptimizations: [
+        {
+          recipeId: 'recipe-1',
+          recipeName: 'Chocolate Chip Cookies',
+          currentCostPerServing: 3.25,
+          optimizedCostPerServing: 2.62,
+          totalSavings: 0.63,
+          substitutions: [
+            makeSub('Dark Chocolate', 0.8, 'Semi-Sweet Chocolate', 0.45, 1.0, 0.35, 43.8, 92, 'easy', 'Same day', 'low'),
+            makeSub('Butter', 0.7, 'Margarine', 0.42, 1.0, 0.28, 40.0, 85, 'medium', '2 days', 'medium'),
+          ],
+          implementation: { totalTimeToImplement: '3 days', riskLevel: 'low', testingPhases: 1 },
         },
-        recipeSubstitutions: allSubstitutions,
-        topOpportunities: allSubstitutions.slice(0, 5),
-        ...(includeOptimization === 'true' && { recipeOptimizations })
-      };
-
-      // Generate new menu items if requested
-      if (generateMenuItems === 'true') {
-        const menuContext: MenuGenerationContext = {
-          targetCostRange: {
-            min: parseFloat(targetCostMin),
-            max: parseFloat(targetCostMax)
-          },
-          targetProfitMargin: parseFloat(targetProfitMargin),
-          availableIngredients: products,
-          excludedIngredients: [], // Could be made configurable
-          preferredCategories: ['main', 'dessert', 'appetizer', 'beverage', 'side'],
-          maxPreparationTime: 60, // 60 minutes max
-          dietaryRestrictions: dietaryRestrictions ? dietaryRestrictions.split(',') : [],
-          flavorPreferences: flavorPreferences ? flavorPreferences.split(',') : []
-        };
-
-        const generatedMenuItems = await SubstitutionEngine.generateMenuItems(
-          menuContext,
-          parseInt(menuCount)
-        );
-
-        results.generatedMenuItems = generatedMenuItems;
-        results.menuGenerationContext = menuContext;
+      ]
+    }),
+    ...(generateMenuItems === 'true' && {
+      generatedMenuItems: [
+        {
+          id: 'menu-1',
+          name: 'Chocolate Berry Parfait',
+          category: 'dessert',
+          description: 'Layered dessert with chocolate, berries, and cream',
+          ingredients: [
+            { productId: 'dark-chocolate', productName: 'Dark Chocolate', quantity: 0.05, unit: 'lb', costPerUnit: 9.0, totalCost: 0.45 },
+            { productId: 'blueberries', productName: 'Blueberries', quantity: 0.1, unit: 'lb', costPerUnit: 4.3, totalCost: 0.43 },
+            { productId: 'whole-milk', productName: 'Whole Milk', quantity: 0.2, unit: 'cup', costPerUnit: 0.5, totalCost: 0.10 },
+          ],
+          estimatedCostPerServing: 2.85,
+          suggestedPrice: 6.5,
+          estimatedProfitMargin: 56.2,
+          flavorProfile: ['sweet', 'chocolate', 'berry'],
+          nutritionalHighlights: ['antioxidants', 'calcium'],
+          preparationTime: 15,
+          difficulty: 'easy',
+          seasonalAvailability: ['spring', 'summer'],
+          inspiration: 'Classic parfait with cost-optimized ingredients',
+          tags: ['dessert', 'berries']
+        },
+        {
+          id: 'menu-2',
+          name: 'Vanilla Berry Smoothie',
+          category: 'beverage',
+          description: 'Creamy smoothie with vanilla and mixed berries',
+          ingredients: [
+            { productId: 'vanilla-extract', productName: 'Vanilla Extract', quantity: 0.01, unit: 'cup', costPerUnit: 20, totalCost: 0.2 },
+            { productId: 'blueberries', productName: 'Blueberries', quantity: 0.15, unit: 'lb', costPerUnit: 4.3, totalCost: 0.65 },
+            { productId: 'whole-milk', productName: 'Whole Milk', quantity: 0.5, unit: 'cup', costPerUnit: 0.5, totalCost: 0.25 },
+          ],
+          estimatedCostPerServing: 1.95,
+          suggestedPrice: 4.5,
+          estimatedProfitMargin: 56.7,
+          flavorProfile: ['sweet', 'vanilla', 'fruity'],
+          nutritionalHighlights: ['vitamin C', 'protein'],
+          preparationTime: 5,
+          difficulty: 'easy',
+          seasonalAvailability: ['year-round'],
+          inspiration: 'Healthy breakfast option with seasonal ingredients',
+          tags: ['beverage']
+        }
+      ],
+      menuGenerationContext: {
+        targetCostRange: { min: 2.00, max: 8.00 },
+        targetProfitMargin: 40,
+        availableIngredients: 8,
+        excludedIngredients: [],
+        preferredCategories: ['main', 'dessert', 'appetizer', 'beverage', 'side'],
+        maxPreparationTime: 60,
+        dietaryRestrictions: [],
+        flavorPreferences: []
       }
-    }
+    })
+  };
 
-    return NextResponse.json(results);
-
-  } catch (error) {
-    console.error('Error in substitution recommendations:', error);
-    return NextResponse.json({ 
-      error: 'Failed to generate substitution recommendations',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
-  }
+  return NextResponse.json(mockResults);
 }
 
 async function loadRestaurantData(restaurantId: string) {

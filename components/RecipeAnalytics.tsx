@@ -27,7 +27,7 @@ export default function RecipeAnalytics() {
   if (!hasMounted) return null;
 
   // Wait for data to be loaded
-  if (isLoading || (state.recipes.length === 0 && state.sales.length === 0)) {
+  if (isLoading) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Recipe/Menu Item Analytics</h3>
@@ -106,7 +106,7 @@ export default function RecipeAnalytics() {
         let totalUnits = quantity * (packageSize || 1);
         if (!totalUnits || isNaN(totalUnits) || totalUnits <= 0) totalUnits = 1; // avoid division by zero/NaN
         const unitCost = productCost / totalUnits;
-        ingredientCost = unitCost * ingredient.quantity;
+        ingredientCost = unitCost * (typeof ingredient.quantity === 'number' ? ingredient.quantity : parseFloat(ingredient.quantity) || 0);
         // Debug log
         console.log(`[RecipeAnalytics] Sale ${saleDate.toISOString().slice(0,10)} | Ingredient: ${product.name} | price: ${productCost} | packageSize: ${packageSize} | quantity: ${quantity} | totalUnits: ${totalUnits} | unitCost: ${unitCost} | ingredientCost: ${ingredientCost}`);
         return sum + ingredientCost;
@@ -152,7 +152,7 @@ export default function RecipeAnalytics() {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold mb-4">Recipe/Menu Item Analytics</h3>
-      {recipesWithSales.length === 0 ? (
+      {state.recipes.length === 0 ? (
         <div className="text-gray-500">No recipe analytics available yet.</div>
       ) : (
         <>
@@ -162,7 +162,7 @@ export default function RecipeAnalytics() {
             value={selectedRecipeId || ''}
             onChange={e => setSelectedRecipeId(e.target.value)}
           >
-            {recipesWithSales.map(recipe => (
+            {state.recipes.map(recipe => (
               <option key={recipe.id} value={recipe.id}>
                 {recipe.name}
               </option>

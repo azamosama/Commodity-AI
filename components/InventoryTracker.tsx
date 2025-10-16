@@ -8,7 +8,7 @@ import ExportButton from './ExportButton';
 import { DataSyncStatus } from './DataSyncStatus';
 
 export function InventoryTracker() {
-  const { state, dispatch } = useCostManagement();
+  const { state, dispatch, isLoading } = useCostManagement();
   const { isEditing, setIsEditing } = useEditing();
   const [selectedRecipe, setSelectedRecipe] = useState<string>('');
   const [quantitySold, setQuantitySold] = useState<string>('0');
@@ -22,11 +22,108 @@ export function InventoryTracker() {
   const [recurrence, setRecurrence] = useState<string>('none');
   const [rangeStart, setRangeStart] = useState<string>(new Date().toISOString().split('T')[0]);
   const [rangeEnd, setRangeEnd] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [hasMounted, setHasMounted] = useState(false);
 
-  useEffect(() => { setHasMounted(true); }, []);
+  // Debug logging
+  console.log('[InventoryTracker] Render - isLoading:', isLoading, 'products:', state.products.length, 'sales:', state.sales.length, 'expenses:', state.expenses.length);
 
-  if (!hasMounted) return null;
+  // Force show data regardless of loading state for debugging
+  return (
+    <div className="bg-white rounded-lg shadow p-6">
+      <h3 className="text-lg font-semibold mb-4">Inventory & Sales Tracking</h3>
+      <div className="text-red-500 mb-4">
+        DEBUG: isLoading={isLoading.toString()}, products={state.products.length}, sales={state.sales.length}, expenses={state.expenses.length}
+      </div>
+      
+      {/* Force show the data tables regardless of loading state */}
+      <div className="mb-6">
+        <h4 className="text-md font-medium mb-3">Current Inventory ({state.products.length} items)</h4>
+        {state.products.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {state.products.map((product, idx) => (
+                  <tr key={`${product.id}-${idx}`}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{product.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.category}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.packageSize || 0}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${(product.cost || 0).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-gray-500">No products in inventory</p>
+        )}
+      </div>
+
+      <div className="mb-6">
+        <h4 className="text-md font-medium mb-3">Sales Records ({state.sales.length} records)</h4>
+        {state.sales.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipe</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {state.sales.map((sale, idx) => (
+                  <tr key={`${sale.id}-${idx}`}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(sale.date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sale.recipeName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{sale.quantity}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${(sale.salePrice || 0).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-gray-500">No sales records</p>
+        )}
+      </div>
+
+      <div>
+        <h4 className="text-md font-medium mb-3">Expense Tracking ({state.expenses.length} expenses)</h4>
+        {state.expenses.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {state.expenses.map((expense, idx) => (
+                  <tr key={`${expense.id}-${idx}`}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(expense.date).toLocaleDateString()}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{expense.category}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${(expense.amount || 0).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-gray-500">No expenses recorded</p>
+        )}
+      </div>
+    </div>
+  );
 
   // Helper to get remaining stock for a product
   const getRemainingStock = (productId: string) => {
@@ -221,19 +318,17 @@ export function InventoryTracker() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700">Recipe/Menu Item</label>
-            {hasMounted && (
-              <select
-                value={selectedRecipe}
-                onChange={(e) => setSelectedRecipe(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                onFocus={() => setIsEditing(true)}
-              >
-                <option value="">Select a recipe</option>
-                {state.recipes.map((recipe) => (
-                  <option key={recipe.id} value={recipe.id}>{recipe.name}</option>
-                ))}
-              </select>
-            )}
+            <select
+              value={selectedRecipe}
+              onChange={(e) => setSelectedRecipe(e.target.value)}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              onFocus={() => setIsEditing(true)}
+            >
+              <option value="">Select a recipe</option>
+              {state.recipes.map((recipe) => (
+                <option key={recipe.id} value={recipe.id}>{recipe.name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">Quantity Sold</label>
@@ -332,8 +427,7 @@ export function InventoryTracker() {
       </form>
 
       {/* Sales Records Table */}
-      {hasMounted && (
-        <div className="border-t pt-6">
+      <div className="border-t pt-6">
           <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-medium">Sales Records</h3>
           <ExportButton 
@@ -444,7 +538,6 @@ export function InventoryTracker() {
             </table>
           </div>
         </div>
-      )}
 
       <div className="border-t pt-6">
         <div className="flex items-center justify-between mb-4">
@@ -475,7 +568,6 @@ export function InventoryTracker() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {state.products.map((product, idx) => {
-                console.log('InventoryTracker: Rendering product:', product.name, product.id);
                 const item = state.inventory.find((i) => i.productId === product.id);
                 // Show true currentStock, even if negative or positive
                 const currentStock = item ? item.currentStock : calculateTotalUnits(product);

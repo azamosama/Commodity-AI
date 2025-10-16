@@ -1,0 +1,536 @@
+{
+  "test-restaurant": {
+    "products": [
+      {
+        "id": "test-1",
+        "name": "Test Product",
+        "cost": 10.99
+      }
+    ],
+    "recipes": [],
+    "expenses": [],
+    "inventory": [],
+    "sales": []
+  },
+  "restaurant-a": {
+    "products": [
+      {
+        "id": "strawberry-1",
+        "name": "Strawberries",
+        "cost": 90,
+        "unit": "lb",
+        "packageSize": 1
+      }
+    ],
+    "recipes": [],
+    "expenses": [],
+    "inventory": [],
+    "sales": []
+  },
+  "default": {
+    "products": [
+      {
+        "id": "milk-1",
+        "name": "Whole Milk",
+        "quantity": 1,
+        "unit": "gallon",
+        "packageSize": 1,
+        "packageUnit": "gallon",
+        "cost": 4.99,
+        "category": "Food",
+        "categoryType": "Dairy",
+        "supplier": "Local Dairy Co.",
+        "substitutes": ["almond-milk-1"],
+        "nutritionalInfo": {
+          "calories": 150,
+          "protein": 8,
+          "carbs": 12,
+          "fat": 8,
+          "fiber": 0
+        },
+        "allergens": ["dairy"],
+        "flavorProfile": ["creamy", "sweet"]
+      },
+      {
+        "id": "strawberries-1",
+        "name": "Strawberries",
+        "quantity": 1,
+        "unit": "lb",
+        "packageSize": 1,
+        "packageUnit": "lb",
+        "cost": 5.99,
+        "category": "Food",
+        "categoryType": "Produce",
+        "supplier": "Fresh Farms",
+        "substitutes": ["blueberries-1", "raspberries-1"],
+        "nutritionalInfo": {
+          "calories": 32,
+          "protein": 0.7,
+          "carbs": 7.7,
+          "fat": 0.3,
+          "fiber": 2
+        },
+        "allergens": [],
+        "flavorProfile": ["sweet", "tart"]
+      },
+      {
+        "id": "chocolate-1",
+        "name": "Dark Chocolate",
+        "quantity": 1,
+        "unit": "lb",
+        "packageSize": 1,
+        "packageUnit": "lb",
+        "cost": 15.99,
+        "category": "Food",
+        "categoryType": "Dry Goods",
+        "supplier": "Premium Chocolates",
+        "substitutes": ["cocoa-powder-1"],
+        "nutritionalInfo": {
+          "calories": 546,
+          "protein": 7.8,
+          "carbs": 45.9,
+          "fat": 31.3,
+          "fiber": 10.9
+        },
+        "allergens": ["dairy"],
+        "flavorProfile": ["rich", "bitter", "sweet"]
+      },
+      {
+        "id": "flour-1",
+        "name": "All-Purpose Flour",
+        "quantity": 1,
+        "unit": "lb",
+        "packageSize": 5,
+        "packageUnit": "lb",
+        "cost": 3.99,
+        "category": "Food",
+        "categoryType": "Dry Goods",
+        "supplier": "Bulk Foods Co.",
+        "substitutes": ["whole-wheat-flour-1"],
+        "nutritionalInfo": {
+          "calories": 364,
+          "protein": 10.3,
+          "carbs": 76.3,
+          "fat": 1,
+          "fiber": 2.7
+        },
+        "allergens": ["gluten"],
+        "flavorProfile": ["neutral", "earthy"]
+      },
+      {
+        "id": "sugar-1",
+        "name": "Granulated Sugar",
+        "quantity": 1,
+        "unit": "lb",
+        "packageSize": 5,
+        "packageUnit": "lb",
+        "cost": 2.99,
+        "category": "Food",
+        "categoryType": "Dry Goods",
+        "supplier": "Bulk Foods Co.",
+        "substitutes": ["honey-1", "maple-syrup-1"],
+        "nutritionalInfo": {
+          "calories": 387,
+          "protein": 0,
+          "carbs": 100,
+          "fat": 0,
+          "fiber": 0
+        },
+        "allergens": [],
+        "flavorProfile": ["sweet"]
+      },
+      {
+        "id": "eggs-1",
+        "name": "Large Eggs",
+        "quantity": 1,
+        "unit": "dozen",
+        "packageSize": 12,
+        "packageUnit": "count",
+        "cost": 4.99,
+        "category": "Food",
+        "categoryType": "Dairy",
+        "supplier": "Local Farm",
+        "substitutes": ["flax-eggs-1"],
+        "nutritionalInfo": {
+          "calories": 70,
+          "protein": 6,
+          "carbs": 0.6,
+          "fat": 5,
+          "fiber": 0
+        },
+        "allergens": ["eggs"],
+        "flavorProfile": ["rich", "savory"]
+      },
+      {
+        "id": "butter-1",
+        "name": "Butter",
+        "quantity": 1,
+        "unit": "lb",
+        "packageSize": 1,
+        "packageUnit": "lb",
+        "cost": 6.99,
+        "category": "Food",
+        "categoryType": "Dairy",
+        "supplier": "Local Dairy Co.",
+        "substitutes": ["olive-oil-1"],
+        "nutritionalInfo": {
+          "calories": 717,
+          "protein": 0.9,
+          "carbs": 0.1,
+          "fat": 81,
+          "fiber": 0
+        },
+        "allergens": ["dairy"],
+        "flavorProfile": ["creamy", "savory"]
+      },
+      {
+        "id": "cups-1",
+        "name": "Paper Cups",
+        "quantity": 1,
+        "unit": "count",
+        "packageSize": 100,
+        "packageUnit": "count",
+        "cost": 0.50,
+        "category": "Supplies",
+        "categoryType": "Disposables",
+        "supplier": "Restaurant Supply",
+        "substitutes": ["reusable-cups-1"],
+        "nutritionalInfo": null,
+        "allergens": [],
+        "flavorProfile": []
+      }
+    ],
+    "recipes": [
+      {
+        "id": "recipe-1",
+        "name": "Chocolate Strawberries",
+        "description": "Fresh strawberries dipped in rich dark chocolate",
+        "servings": 12,
+        "prepTime": 30,
+        "cookTime": 0,
+        "difficulty": "Easy",
+        "category": "Dessert",
+        "ingredients": [
+          {
+            "productId": "strawberries-1",
+            "quantity": 0.5,
+            "unit": "lb"
+          },
+          {
+            "productId": "chocolate-1",
+            "quantity": 0.25,
+            "unit": "lb"
+          }
+        ],
+        "instructions": [
+          "Wash and dry strawberries",
+          "Melt chocolate in double boiler",
+          "Dip strawberries in chocolate",
+          "Place on parchment paper to cool"
+        ],
+        "cost": 8.50,
+        "salePrice": 15.99
+      },
+      {
+        "id": "recipe-2",
+        "name": "Strawberry Smoothie",
+        "description": "Creamy strawberry smoothie with fresh fruit",
+        "servings": 2,
+        "prepTime": 5,
+        "cookTime": 0,
+        "difficulty": "Easy",
+        "category": "Beverage",
+        "ingredients": [
+          {
+            "productId": "strawberries-1",
+            "quantity": 0.25,
+            "unit": "lb"
+          },
+          {
+            "productId": "milk-1",
+            "quantity": 0.5,
+            "unit": "gallon"
+          },
+          {
+            "productId": "sugar-1",
+            "quantity": 0.1,
+            "unit": "lb"
+          }
+        ],
+        "instructions": [
+          "Add strawberries to blender",
+          "Add milk and sugar",
+          "Blend until smooth",
+          "Serve immediately"
+        ],
+        "cost": 3.25,
+        "salePrice": 8.99
+      },
+      {
+        "id": "recipe-3",
+        "name": "Chocolate Mousse",
+        "description": "Rich and creamy chocolate mousse dessert",
+        "servings": 6,
+        "prepTime": 45,
+        "cookTime": 0,
+        "difficulty": "Medium",
+        "category": "Dessert",
+        "ingredients": [
+          {
+            "productId": "chocolate-1",
+            "quantity": 0.3,
+            "unit": "lb"
+          },
+          {
+            "productId": "eggs-1",
+            "quantity": 3,
+            "unit": "count"
+          },
+          {
+            "productId": "sugar-1",
+            "quantity": 0.2,
+            "unit": "lb"
+          }
+        ],
+        "instructions": [
+          "Melt chocolate in double boiler",
+          "Separate egg yolks and whites",
+          "Beat yolks with sugar",
+          "Fold in melted chocolate",
+          "Whip egg whites to stiff peaks",
+          "Fold egg whites into chocolate mixture",
+          "Chill for 2 hours"
+        ],
+        "cost": 6.75,
+        "salePrice": 12.99
+      },
+      {
+        "id": "recipe-4",
+        "name": "Blueberry Pancakes",
+        "description": "Fluffy pancakes with fresh blueberries",
+        "servings": 8,
+        "prepTime": 15,
+        "cookTime": 20,
+        "difficulty": "Easy",
+        "category": "Breakfast",
+        "ingredients": [
+          {
+            "productId": "flour-1",
+            "quantity": 0.5,
+            "unit": "lb"
+          },
+          {
+            "productId": "eggs-1",
+            "quantity": 2,
+            "unit": "count"
+          },
+          {
+            "productId": "milk-1",
+            "quantity": 0.25,
+            "unit": "gallon"
+          },
+          {
+            "productId": "sugar-1",
+            "quantity": 0.1,
+            "unit": "lb"
+          },
+          {
+            "productId": "butter-1",
+            "quantity": 0.1,
+            "unit": "lb"
+          }
+        ],
+        "instructions": [
+          "Mix dry ingredients in bowl",
+          "Beat eggs with milk",
+          "Combine wet and dry ingredients",
+          "Fold in blueberries",
+          "Cook on griddle until golden"
+        ],
+        "cost": 4.25,
+        "salePrice": 9.99
+      }
+    ],
+    "expenses": [],
+    "inventory": [],
+    "sales": [
+      {
+        "id": "sale-1",
+        "recipeName": "Chocolate Strawberries",
+        "quantity": 10,
+        "date": "2025-01-15T10:00:00.000Z",
+        "salePrice": 15.99
+      },
+      {
+        "id": "sale-2",
+        "recipeName": "Chocolate Strawberries",
+        "quantity": 8,
+        "date": "2025-01-15T14:30:00.000Z",
+        "salePrice": 15.99
+      },
+      {
+        "id": "sale-3",
+        "recipeName": "Strawberry Smoothie",
+        "quantity": 5,
+        "date": "2025-01-15T09:30:00.000Z",
+        "salePrice": 8.99
+      },
+      {
+        "id": "sale-4",
+        "recipeName": "Chocolate Mousse",
+        "quantity": 3,
+        "date": "2025-01-15T19:30:00.000Z",
+        "salePrice": 12.99
+      },
+      {
+        "id": "sale-5",
+        "recipeName": "Blueberry Pancakes",
+        "quantity": 6,
+        "date": "2025-01-15T08:00:00.000Z",
+        "salePrice": 9.99
+      },
+      {
+        "id": "sale-6",
+        "recipeName": "Chocolate Strawberries",
+        "quantity": 12,
+        "date": "2025-01-14T11:15:00.000Z",
+        "salePrice": 15.99
+      },
+      {
+        "id": "sale-7",
+        "recipeName": "Strawberry Smoothie",
+        "quantity": 4,
+        "date": "2025-01-14T10:45:00.000Z",
+        "salePrice": 8.99
+      },
+      {
+        "id": "sale-8",
+        "recipeName": "Chocolate Mousse",
+        "quantity": 5,
+        "date": "2025-01-14T20:00:00.000Z",
+        "salePrice": 12.99
+      },
+      {
+        "id": "sale-9",
+        "recipeName": "Blueberry Pancakes",
+        "quantity": 8,
+        "date": "2025-01-14T07:30:00.000Z",
+        "salePrice": 9.99
+      },
+      {
+        "id": "sale-10",
+        "recipeName": "Chocolate Strawberries",
+        "quantity": 15,
+        "date": "2025-01-13T12:00:00.000Z",
+        "salePrice": 15.99
+      },
+      {
+        "id": "sale-11",
+        "recipeName": "Strawberry Smoothie",
+        "quantity": 7,
+        "date": "2025-01-13T11:00:00.000Z",
+        "salePrice": 8.99
+      },
+      {
+        "id": "sale-12",
+        "recipeName": "Chocolate Mousse",
+        "quantity": 4,
+        "date": "2025-01-13T18:45:00.000Z",
+        "salePrice": 12.99
+      },
+      {
+        "id": "sale-13",
+        "recipeName": "Blueberry Pancakes",
+        "quantity": 10,
+        "date": "2025-01-13T08:15:00.000Z",
+        "salePrice": 9.99
+      },
+      {
+        "id": "sale-14",
+        "recipeName": "Chocolate Strawberries",
+        "quantity": 6,
+        "date": "2025-01-12T13:30:00.000Z",
+        "salePrice": 15.99
+      },
+      {
+        "id": "sale-15",
+        "recipeName": "Strawberry Smoothie",
+        "quantity": 9,
+        "date": "2025-01-12T10:15:00.000Z",
+        "salePrice": 8.99
+      },
+      {
+        "id": "sale-16",
+        "recipeName": "Chocolate Mousse",
+        "quantity": 6,
+        "date": "2025-01-12T19:00:00.000Z",
+        "salePrice": 12.99
+      },
+      {
+        "id": "sale-17",
+        "recipeName": "Blueberry Pancakes",
+        "quantity": 7,
+        "date": "2025-01-12T07:45:00.000Z",
+        "salePrice": 9.99
+      },
+      {
+        "id": "sale-18",
+        "recipeName": "Chocolate Strawberries",
+        "quantity": 20,
+        "date": "2025-01-11T14:00:00.000Z",
+        "salePrice": 15.99
+      },
+      {
+        "id": "sale-19",
+        "recipeName": "Strawberry Smoothie",
+        "quantity": 6,
+        "date": "2025-01-11T09:00:00.000Z",
+        "salePrice": 8.99
+      },
+      {
+        "id": "sale-20",
+        "recipeName": "Chocolate Mousse",
+        "quantity": 8,
+        "date": "2025-01-11T20:30:00.000Z",
+        "salePrice": 12.99
+      },
+      {
+        "id": "sale-21",
+        "recipeName": "Blueberry Pancakes",
+        "quantity": 12,
+        "date": "2025-01-11T08:30:00.000Z",
+        "salePrice": 9.99
+      },
+      {
+        "id": "sale-22",
+        "recipeName": "Chocolate Strawberries",
+        "quantity": 14,
+        "date": "2025-01-10T15:15:00.000Z",
+        "salePrice": 15.99
+      },
+      {
+        "id": "sale-23",
+        "recipeName": "Strawberry Smoothie",
+        "quantity": 8,
+        "date": "2025-01-10T11:30:00.000Z",
+        "salePrice": 8.99
+      },
+      {
+        "id": "sale-24",
+        "recipeName": "Chocolate Mousse",
+        "quantity": 5,
+        "date": "2025-01-10T18:00:00.000Z",
+        "salePrice": 12.99
+      },
+      {
+        "id": "sale-25",
+        "recipeName": "Blueberry Pancakes",
+        "quantity": 9,
+        "date": "2025-01-10T07:00:00.000Z",
+        "salePrice": 9.99
+      }
+    ],
+    "_version": "1.0.0",
+    "_lastSync": "2025-01-15T23:00:09.577Z"
+  }
+}

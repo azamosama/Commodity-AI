@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { Suspense } from "react"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar"
@@ -16,7 +17,9 @@ export default function AppLayout({
 }) {
   return (
     <SidebarProvider>
-      <AppSidebar />
+      <Suspense fallback={<div>Loading sidebar...</div>}>
+        <AppSidebar />
+      </Suspense>
       <SidebarInset className="relative">
         <GlobalAlertBanner />
         <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sm:px-6">

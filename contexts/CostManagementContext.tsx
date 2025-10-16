@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useReducer, ReactNode, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useEffect, useRef, useState, useCallback } from 'react';
 import { Product, Recipe, Expense, InventoryItem, SalesRecord } from '@/lib/types';
 import { calculateTotalUnits } from '@/lib/utils';
 
@@ -1094,8 +1094,6 @@ function costManagementReducer(state: CostManagementState, action: CostManagemen
       };
     }
     case 'SYNC_STATE':
-      console.log('SYNC_STATE: Setting state with', action.payload.products.length, 'products');
-      console.log('SYNC_STATE: Product IDs:', action.payload.products.map((p: any) => p.id));
       return { ...action.payload };
     default:
       return state;
@@ -1126,18 +1124,25 @@ const getLocalStorageKey = (restaurantId: string) => `costManagementState_${rest
 
 export function CostManagementProvider({ children }: { children: ReactNode }) {
   const getInitialState = () => {
-    // For now, return initialState and load data asynchronously
-    return initialState;
+    // Start empty; real data is loaded from the API immediately after mount.
+    const emptyState: CostManagementState = {
+      products: [],
+      recipes: [],
+      expenses: [],
+      inventory: [],
+      sales: [],
+    };
+    return emptyState;
   };
 
-  const [state, dispatch] = useReducer(costManagementReducer, initialState, getInitialState);
+  const [state, dispatch] = useReducer(costManagementReducer, getInitialState());
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const isEditingRef = useRef(isEditing);
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
 
   // Force refresh function
-  const forceRefresh = async () => {
+  const forceRefresh = useCallback(async () => {
     if (typeof window !== 'undefined') {
       const restaurantId = getRestaurantId();
       const storageKey = getLocalStorageKey(restaurantId);
@@ -1145,42 +1150,44 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
       // Clear ALL localStorage to prevent any cached data
       localStorage.clear();
       sessionStorage.clear();
-      console.log('Force refresh: Cleared all storage');
       
-      // Reset state to initial state first
-      dispatch({ type: 'SYNC_STATE', payload: initialState });
-      console.log('Force refresh: Reset state to initial state');
+      // Reset to empty state first to drop any stale in-memory data
+      dispatch({ type: 'SYNC_STATE', payload: { products: [], recipes: [], expenses: [], inventory: [], sales: [] } });
       
       // Reload from API with cache busting
       try {
-        const response = await fetch(`/api/restaurant-data?restaurantId=${restaurantId}&_t=${Date.now()}&_force=1`);
+        const response = await fetch(`/api/restaurant-data?restaurantId=${restaurantId}&_t=${Date.now()}&_force=1&_nocache=1`, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
+          }
+        });
         if (response.ok) {
           const result = await response.json();
-          if (result.data) {
+          // API returns data directly, not nested under 'data' property
+          if (result && (result.products || result.sales || result.expenses)) {
             // Validate that we don't have duplicate IDs
-            const products = result.data.products || [];
+            const products = result.products || [];
             const ids = products.map((p: any) => p.id);
             const uniqueIds = new Set(ids);
             
             if (ids.length !== uniqueIds.size) {
-              console.error('API returned duplicate product IDs:', ids);
               // Remove duplicates by keeping only the first occurrence
               const uniqueProducts = products.filter((product: any, index: number) => 
                 ids.indexOf(product.id) === index
               );
-              result.data.products = uniqueProducts;
-              console.log('Removed duplicate products, keeping only unique IDs');
+              result.products = uniqueProducts;
             }
             
-            dispatch({ type: 'SYNC_STATE', payload: result.data });
-            console.log('Force refresh: Data reloaded from API with', result.data.products.length, 'products');
+            dispatch({ type: 'SYNC_STATE', payload: result });
           }
         }
       } catch (error) {
         console.error('Force refresh error:', error);
       }
     }
-  };
+  }, []);
 
   // Load data from API and localStorage on mount
   useEffect(() => {
@@ -1188,15 +1195,19 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
       if (typeof window !== 'undefined') {
         const restaurantId = getRestaurantId();
         
+        
         // ALWAYS clear all storage first to prevent cached data issues
         localStorage.clear();
         sessionStorage.clear();
-        console.log('Cleared all storage before loading data');
+        
+        // Force reset to empty before loading fresh data
+        dispatch({ type: 'SYNC_STATE', payload: { products: [], recipes: [], expenses: [], inventory: [], sales: [] } });
         
         try {
           // Force load from API with aggressive cache busting
-          console.log('Loading data from API for restaurant:', restaurantId);
-          const response = await fetch(`/api/restaurant-data?restaurantId=${restaurantId}&_t=${Date.now()}&_force=1&_nocache=1`, {
+          const apiUrl = `/api/restaurant-data?restaurantId=${restaurantId}&_t=${Date.now()}&_force=1&_nocache=1`;
+          
+          const response = await fetch(apiUrl, {
             headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               'Pragma': 'no-cache',
@@ -1206,28 +1217,24 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
           
           if (response.ok) {
             const result = await response.json();
-            if (result.data) {
+            
+            // API returns data directly, not nested under 'data' property
+            if (result && (result.products || result.sales || result.expenses)) {
               // Validate and clean the data
-              const products = result.data.products || [];
+              const products = result.products || [];
               const ids = products.map((p: any) => p.id);
               const uniqueIds = new Set(ids);
               
               if (ids.length !== uniqueIds.size) {
-                console.error('API returned duplicate product IDs:', ids);
                 // Remove duplicates by keeping only the first occurrence
                 const uniqueProducts = products.filter((product: any, index: number) => 
                   ids.indexOf(product.id) === index
                 );
-                result.data.products = uniqueProducts;
-                console.log('Removed duplicate products, keeping only unique IDs');
+                result.products = uniqueProducts;
               }
               
-            dispatch({ type: 'SYNC_STATE', payload: result.data });
-            console.log('Data loaded successfully from API for restaurant:', restaurantId, 'with', result.data.products.length, 'products');
-            console.log('Product IDs from API:', result.data.products.map((p: any) => p.id));
+            dispatch({ type: 'SYNC_STATE', payload: result });
             }
-          } else {
-            console.error('API request failed with status:', response.status);
           }
         } catch (error) {
           console.error('Error loading restaurant data from API:', error);
@@ -1245,8 +1252,8 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
       if (typeof window !== 'undefined' && !isLoading) {
         const restaurantId = getRestaurantId();
         
-        // Don't save if we have more than 3 products (indicates cached data)
-        if (state.products.length > 3) {
+        // Don't save if we have more than 8 products (indicates cached data)
+        if (state.products.length > 8) {
           console.log('Skipping save - too many products detected (cached data):', state.products.length);
           return;
         }
@@ -1260,6 +1267,11 @@ export function CostManagementProvider({ children }: { children: ReactNode }) {
           return;
         }
         
+        // Avoid saving empty snapshots (which erase mock data)
+        if (state.products.length === 0 && state.sales.length === 0 && state.recipes.length === 0) {
+          console.log('Skipping save - empty snapshot would overwrite data');
+          return;
+        }
         // Debug: Log what we're about to save
         console.log('About to save products:', state.products.length, 'Product IDs:', productIds);
         

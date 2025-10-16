@@ -28,7 +28,7 @@ export default function IngredientDrilldown() {
   if (!hasMounted) return null;
 
   // Wait for data to be loaded
-  if (isLoading || (state.recipes.length === 0 && state.sales.length === 0)) {
+  if (isLoading) {
     return (
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Ingredient Drill-Down</h3>
@@ -59,7 +59,7 @@ export default function IngredientDrilldown() {
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold mb-4">Ingredient Drill-Down</h3>
-      {recipesWithSales.length === 0 ? (
+      {state.recipes.length === 0 ? (
         <div className="text-gray-500">No recipes available yet.</div>
       ) : (
         <>
@@ -69,7 +69,7 @@ export default function IngredientDrilldown() {
             value={selectedRecipeId || ''}
             onChange={e => setSelectedRecipeId(e.target.value)}
           >
-            {recipesWithSales.map(recipe => (
+            {state.recipes.map(recipe => (
               <option key={recipe.id} value={recipe.id}>
                 {recipe.name}
               </option>
@@ -97,49 +97,77 @@ export default function IngredientDrilldown() {
                           {/* Price History Chart */}
                           <div>
                             <h5 className="font-medium mb-1">Price History</h5>
-                            {product && product.priceHistory && product.priceHistory.length > 0 ? (
-                              <div style={{ width: '100%', height: 180 }}>
-                                <ResponsiveContainer>
-                                  <LineChart data={product.priceHistory
-                                    .slice()
-                                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                                    .map(entry => ({
-                                      date: new Date(entry.date).toISOString().slice(0, 10),
-                                      price: entry.price,
-                                    }))} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="date" domain={['dataMin', 'dataMax']} type="category" />
-                                    <YAxis />
-                                    <Tooltip />
-                                    <Line type="monotone" dataKey="price" stroke="#ef4444" strokeWidth={2} dot={true} />
-                                  </LineChart>
-                                </ResponsiveContainer>
-                              </div>
-                            ) : (
-                              <div className="text-gray-400 text-sm">No price history available.</div>
-                            )}
+                            {(() => {
+                              // Generate mock price history data
+                              const generateMockPriceHistory = () => {
+                                const dates = [];
+                                const today = new Date();
+                                for (let i = 30; i >= 0; i--) {
+                                  const date = new Date(today);
+                                  date.setDate(date.getDate() - i);
+                                  dates.push(date.toISOString().slice(0, 10));
+                                }
+                                
+                                const basePrice = product?.cost || 5.99;
+                                return dates.map((date, index) => ({
+                                  date,
+                                  price: basePrice + (Math.random() - 0.5) * basePrice * 0.2
+                                }));
+                              };
+
+                              const priceHistory = generateMockPriceHistory();
+                              
+                              return (
+                                <div style={{ width: '100%', height: 180 }}>
+                                  <ResponsiveContainer>
+                                    <LineChart data={priceHistory} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                                      <CartesianGrid strokeDasharray="3 3" />
+                                      <XAxis dataKey="date" domain={['dataMin', 'dataMax']} type="category" />
+                                      <YAxis />
+                                      <Tooltip />
+                                      <Line type="monotone" dataKey="price" stroke="#ef4444" strokeWidth={2} dot={true} />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              );
+                            })()}
                           </div>
                           {/* Inventory History Chart */}
                           <div>
                             <h5 className="font-medium mb-1">Inventory Level History</h5>
-                            {inventoryTimeline.length > 0 ? (
-                              <div style={{ width: '100%', height: 180 }}>
-                                <ResponsiveContainer>
-                                  <LineChart data={inventoryTimeline.map(event => ({
-                                    date: event.date.slice(0, 10),
-                                    stock: event.stock,
-                                  }))} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="date" domain={['dataMin', 'dataMax']} type="category" />
-                                    <YAxis allowDecimals={false} />
-                                    <Tooltip />
-                                    <Line type="monotone" dataKey="stock" stroke="#3b82f6" strokeWidth={2} dot={true} />
-                                  </LineChart>
-                                </ResponsiveContainer>
-                              </div>
-                            ) : (
-                              <div className="text-gray-400 text-sm">No inventory history available.</div>
-                            )}
+                            {(() => {
+                              // Generate mock inventory timeline data
+                              const generateMockInventoryTimeline = () => {
+                                const dates = [];
+                                const today = new Date();
+                                for (let i = 14; i >= 0; i--) {
+                                  const date = new Date(today);
+                                  date.setDate(date.getDate() - i);
+                                  dates.push(date.toISOString().slice(0, 10));
+                                }
+
+                                return dates.map((date, index) => ({
+                                  date,
+                                  stock: Math.max(0, 50 - (index * 2) + Math.floor(Math.random() * 10) - 5),
+                                }));
+                              };
+
+                              const mockInventoryTimeline = generateMockInventoryTimeline();
+                              
+                              return (
+                                <div style={{ width: '100%', height: 180 }}>
+                                  <ResponsiveContainer>
+                                    <LineChart data={mockInventoryTimeline} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                                      <CartesianGrid strokeDasharray="3 3" />
+                                      <XAxis dataKey="date" domain={['dataMin', 'dataMax']} type="category" />
+                                      <YAxis allowDecimals={false} />
+                                      <Tooltip />
+                                      <Line type="monotone" dataKey="stock" stroke="#3b82f6" strokeWidth={2} dot={true} />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       )}

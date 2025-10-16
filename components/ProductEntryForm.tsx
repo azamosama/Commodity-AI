@@ -440,10 +440,13 @@ export function ProductEntryForm() {
           </div>
         </div>
 
+
         {/* Product List Table */}
         {hasMounted && state.products.length > 0 && (
           <div className="mt-6 sm:mt-8">
-            <h3 className="text-base sm:text-lg font-medium mb-2">Current Products</h3>
+            <h3 className="text-base sm:text-lg font-medium mb-2">
+              Current Products ({state.products.length} total)
+            </h3>
             <div className="overflow-x-auto">
               <table key={`products-table-${state.products.length}-${state.products.map(p => p.id).join('-')}`} className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">

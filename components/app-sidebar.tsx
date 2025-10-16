@@ -2,6 +2,7 @@
 
 import { BarChart3, Building2, Calculator, Home, Package, TrendingUp, Database, Upload, Download, ChefHat, Target, RefreshCw } from "lucide-react"
 import Link from "next/link"
+import { usePathname, useSearchParams } from "next/navigation"
 
 import {
   Sidebar,
@@ -132,18 +133,42 @@ const items = [
 ]
 
 export function AppSidebar() {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
   // Get the current restaurant parameter from the URL
   const getRestaurantUrl = (baseUrl: string) => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const restaurant = urlParams.get('restaurant');
-      if (restaurant) {
-        console.log(`Sidebar: Adding restaurant=${restaurant} to ${baseUrl}`);
-        return `${baseUrl}?restaurant=${restaurant}`;
-      }
+    const restaurant = searchParams.get('restaurant');
+    if (restaurant) {
+      return `${baseUrl}?restaurant=${restaurant}`;
     }
     return baseUrl;
   };
+
+  // Check if this is a demo (no restaurant parameter OR path is /app or /demo)
+  const isDemo = !searchParams.get('restaurant') || 
+    pathname === '/app' || 
+    pathname === '/demo';
+
+  // Filter items based on demo vs business mode
+  const visibleItems = items.filter(item => {
+    if (item.hidden) return false;
+    
+    // Hide these tabs for demo users
+    if (isDemo) {
+      const demoHiddenTabs = [
+        'Process Documentation',
+        'Export Data', 
+        'Import Data',
+        'POS Integration',
+        'Flavor GPT'
+      ];
+      return !demoHiddenTabs.includes(item.title);
+    }
+    
+    return true;
+  });
+
 
   return (
     <Sidebar>
@@ -152,7 +177,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Flavor Pulse</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.filter(item => !item.hidden).map((item) => (
+              {visibleItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <Link href={getRestaurantUrl(item.url)}>
