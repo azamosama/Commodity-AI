@@ -12,8 +12,8 @@ export function DynamicLayout({ children }: DynamicLayoutProps) {
 
   return (
     <main 
-      className={`flex-1 overflow-auto p-4 sm:p-6 transition-all duration-200 ${
-        isVisible ? 'pt-20' : 'pt-4'
+      className={`flex-1 overflow-auto p-2 sm:p-4 md:p-6 transition-all duration-200 ${
+        isVisible ? 'pt-16 sm:pt-20' : 'pt-2 sm:pt-4'
       }`}
     >
       {children}

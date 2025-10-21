@@ -22,9 +22,9 @@ export default function AppLayout({
       </Suspense>
       <SidebarInset className="relative">
         <GlobalAlertBanner />
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 sm:px-6">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b px-2 sm:px-4 md:px-6">
           <SidebarTrigger className="-ml-1" />
-          <div className="flex items-center gap-4 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <Link 
               href="/landing"
               onClick={(e) => {
@@ -37,11 +37,10 @@ export default function AppLayout({
               <img 
                 src="/flavor-pulse-logo.png" 
                 alt="Flavor Pulse Logo" 
-                className="h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity"
+                className="h-8 sm:h-10 md:h-12 w-auto cursor-pointer hover:opacity-80 transition-opacity"
                 style={{ 
                   display: 'block',
-                  maxWidth: '150px',
-                  height: '48px',
+                  maxWidth: '120px',
                   objectFit: 'contain'
                 }}
               />

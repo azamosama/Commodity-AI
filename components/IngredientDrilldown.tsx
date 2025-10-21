@@ -57,15 +57,15 @@ export default function IngredientDrilldown() {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold mb-4">Ingredient Drill-Down</h3>
+    <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-6">
+      <h3 className="text-lg font-semibold mb-3 sm:mb-4">Ingredient Drill-Down</h3>
       {state.recipes.length === 0 ? (
         <div className="text-gray-500">No recipes available yet.</div>
       ) : (
         <>
-          <label className="block mb-2 font-medium">Select Recipe/Menu Item:</label>
+          <label className="block mb-2 font-medium text-sm sm:text-base">Select Recipe/Menu Item:</label>
           <select
-            className="mb-4 p-2 border rounded"
+            className="mb-4 p-2 border rounded w-full sm:w-auto text-sm sm:text-base"
             value={selectedRecipeId || ''}
             onChange={e => setSelectedRecipeId(e.target.value)}
           >

@@ -64,15 +64,15 @@ export function InventoryAnalytics() {
     }));
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold mb-4">Inventory Levels (Sales & Restocks)</h3>
+    <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-6">
+      <h3 className="text-lg font-semibold mb-3 sm:mb-4">Inventory Levels (Sales & Restocks)</h3>
       {productOptions.length === 0 ? (
         <div className="text-gray-500">No inventory history available yet.</div>
       ) : (
         <>
-          <label className="block mb-2 font-medium">Select Product:</label>
+          <label className="block mb-2 font-medium text-sm sm:text-base">Select Product:</label>
           <select
-            className="mb-4 p-2 border rounded"
+            className="mb-4 p-2 border rounded w-full sm:w-auto text-sm sm:text-base"
             value={selectedProductId || ''}
             onChange={e => setSelectedProductId(e.target.value)}
           >
@@ -83,9 +83,9 @@ export function InventoryAnalytics() {
             ))}
           </select>
 
-          <div className="mb-8">
-            <h4 className="font-medium mb-2">Inventory Level Over Time</h4>
-            <div style={{ width: '100%', height: 250 }}>
+          <div className="mb-6 sm:mb-8">
+            <h4 className="font-medium mb-2 text-sm sm:text-base">Inventory Level Over Time</h4>
+            <div style={{ width: '100%', height: '200px' }} className="sm:h-[250px]">
               <ResponsiveContainer>
                 <LineChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -98,27 +98,32 @@ export function InventoryAnalytics() {
             </div>
           </div>
 
-          <div className="mb-8">
-            <h4 className="font-medium mb-2">Recent Restocks</h4>
-            <div className="overflow-x-auto">
+          <div className="mb-6 sm:mb-8">
+            <h4 className="font-medium mb-2 text-sm sm:text-base">Recent Restocks</h4>
+            <div className="overflow-x-auto -mx-3 sm:mx-0">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock After</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Stock After</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
+                    <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {restockLog.map((restock, index) => (
                     <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{restock.date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{restock.amount}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{restock.stock}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">{restock.source}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${restock.cost?.toFixed(2)}</td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">{restock.date}</td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div>
+                          <div className="font-medium">{restock.amount}</div>
+                          <div className="text-gray-500 sm:hidden">Stock: {restock.stock}</div>
+                        </div>
+                      </td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 hidden sm:table-cell">{restock.stock}</td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">{restock.source}</td>
+                      <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">${restock.cost?.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>

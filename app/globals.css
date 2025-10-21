@@ -133,5 +133,31 @@
     .max-w-7xl {
       max-width: 100%;
     }
+    
+    /* Mobile-specific sidebar improvements */
+    .sidebar {
+      width: 100% !important;
+    }
+    
+    /* Better mobile card spacing */
+    .bg-white.rounded-lg.shadow {
+      margin: 0.5rem;
+    }
+    
+    /* Mobile-friendly chart containers */
+    .recharts-wrapper {
+      width: 100% !important;
+    }
+    
+    /* Better mobile form layouts */
+    .grid {
+      gap: 0.75rem;
+    }
+    
+    /* Mobile-friendly text sizes */
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.25rem; }
+    h3 { font-size: 1.125rem; }
+    h4 { font-size: 1rem; }
   }
 }
