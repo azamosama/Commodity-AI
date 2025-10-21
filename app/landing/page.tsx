@@ -20,6 +20,10 @@ import {
 
 // Animated background particles component
 function FloatingParticles() {
+  // Use fallback values for server-side rendering
+  const width = typeof window !== 'undefined' ? window.innerWidth : 1200
+  const height = typeof window !== 'undefined' ? window.innerHeight : 800
+  
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {[...Array(20)].map((_, i) => (
@@ -27,8 +31,8 @@ function FloatingParticles() {
           key={i}
           className="absolute w-2 h-2 bg-indigo-200/30 rounded-full"
           initial={{
-            x: Math.random() * window.innerWidth,
-            y: Math.random() * window.innerHeight,
+            x: Math.random() * width,
+            y: Math.random() * height,
           }}
           animate={{
             y: [0, -100, 0],
