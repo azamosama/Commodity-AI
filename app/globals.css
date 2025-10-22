@@ -159,5 +159,42 @@
     h2 { font-size: 1.25rem; }
     h3 { font-size: 1.125rem; }
     h4 { font-size: 1rem; }
+    
+    /* Form improvements */
+    .form-input, .form-select {
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+    }
+    
+    /* Better table spacing */
+    .table th, .table td {
+      padding: 0.5rem 0.25rem;
+    }
+    
+    /* Improved button spacing */
+    .btn-group {
+      gap: 0.5rem;
+    }
+    
+    /* Better card padding */
+    .card {
+      padding: 1rem;
+    }
+    
+    /* Improved modal sizing */
+    .modal {
+      margin: 1rem;
+      max-height: calc(100vh - 2rem);
+    }
+    
+    /* Better sidebar trigger on mobile */
+    .sidebar-trigger {
+      padding: 0.5rem;
+    }
+    
+    /* Improved header spacing */
+    .header {
+      padding: 0.5rem 1rem;
+    }
   }
 }

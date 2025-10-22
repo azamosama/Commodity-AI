@@ -23,43 +23,47 @@ export function InventoryTracker() {
   const [rangeStart, setRangeStart] = useState<string>(new Date().toISOString().split('T')[0]);
   const [rangeEnd, setRangeEnd] = useState<string>(new Date().toISOString().split('T')[0]);
 
-  // Debug logging
-  console.log('[InventoryTracker] Render - isLoading:', isLoading, 'products:', state.products.length, 'sales:', state.sales.length, 'expenses:', state.expenses.length);
+  if (isLoading) {
+    return (
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-6">
+        <h3 className="text-lg font-semibold mb-3 sm:mb-4">Inventory & Sales Tracking</h3>
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          <span className="ml-3 text-gray-600">Loading inventory data...</span>
+        </div>
+      </div>
+    );
+  }
 
-  // Force show data regardless of loading state for debugging
   return (
     <div className="bg-white rounded-lg shadow p-3 sm:p-4 md:p-6">
       <h3 className="text-lg font-semibold mb-3 sm:mb-4">Inventory & Sales Tracking</h3>
-      <div className="text-red-500 mb-3 sm:mb-4 text-sm">
-        DEBUG: isLoading={isLoading.toString()}, products={state.products.length}, sales={state.sales.length}, expenses={state.expenses.length}
-      </div>
       
-      {/* Force show the data tables regardless of loading state */}
       <div className="mb-6">
-        <h4 className="text-md font-medium mb-3">Current Inventory ({state.products.length} items)</h4>
+        <h4 className="text-sm sm:text-base font-medium mb-3 text-gray-700">Current Inventory ({state.products.length} items)</h4>
         {state.products.length > 0 ? (
           <div className="overflow-x-auto -mx-3 sm:mx-0">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Category</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                  <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                  <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Category</th>
+                  <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                  <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {state.products.map((product, idx) => (
-                  <tr key={`${product.id}-${idx}`}>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <tr key={`${product.id}-${idx}`} className="hover:bg-gray-50">
+                    <td className="px-2 sm:px-3 md:px-6 py-3 sm:py-4 text-sm font-medium text-gray-900">
                       <div>
                         <div className="font-medium">{product.name}</div>
-                        <div className="text-gray-500 sm:hidden">{product.category}</div>
+                        <div className="text-xs text-gray-500 sm:hidden mt-1">{product.category}</div>
                       </div>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">{product.category}</td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">{product.packageSize || 0}</td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">${(product.cost || 0).toFixed(2)}</td>
+                    <td className="px-2 sm:px-3 md:px-6 py-3 sm:py-4 text-sm text-gray-500 hidden sm:table-cell">{product.category}</td>
+                    <td className="px-2 sm:px-3 md:px-6 py-3 sm:py-4 text-sm text-gray-500">{product.packageSize || 0}</td>
+                    <td className="px-2 sm:px-3 md:px-6 py-3 sm:py-4 text-sm text-gray-500 font-medium">${(product.cost || 0).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -71,30 +75,30 @@ export function InventoryTracker() {
       </div>
 
       <div className="mb-6">
-        <h4 className="text-md font-medium mb-3">Sales Records ({state.sales.length} records)</h4>
+        <h4 className="text-sm sm:text-base font-medium mb-3 text-gray-700">Sales Records ({state.sales.length} records)</h4>
         {state.sales.length > 0 ? (
           <div className="overflow-x-auto -mx-3 sm:mx-0">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipe</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Quantity</th>
-                  <th className="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                  <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipe</th>
+                  <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Quantity</th>
+                  <th className="px-2 sm:px-3 md:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {state.sales.map((sale, idx) => (
-                  <tr key={`${sale.id}-${idx}`}>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-900">{new Date(sale.date).toLocaleDateString()}</td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <tr key={`${sale.id}-${idx}`} className="hover:bg-gray-50">
+                    <td className="px-2 sm:px-3 md:px-6 py-3 sm:py-4 text-sm text-gray-900">{new Date(sale.date).toLocaleDateString()}</td>
+                    <td className="px-2 sm:px-3 md:px-6 py-3 sm:py-4 text-sm text-gray-500">
                       <div>
                         <div className="font-medium">{sale.recipeName}</div>
-                        <div className="text-gray-500 sm:hidden">Qty: {sale.quantity}</div>
+                        <div className="text-xs text-gray-500 sm:hidden mt-1">Qty: {sale.quantity}</div>
                       </div>
                     </td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden sm:table-cell">{sale.quantity}</td>
-                    <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-sm text-gray-500">${(sale.salePrice || 0).toFixed(2)}</td>
+                    <td className="px-2 sm:px-3 md:px-6 py-3 sm:py-4 text-sm text-gray-500 hidden sm:table-cell">{sale.quantity}</td>
+                    <td className="px-2 sm:px-3 md:px-6 py-3 sm:py-4 text-sm text-gray-500 font-medium">${(sale.salePrice || 0).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
