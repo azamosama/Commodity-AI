@@ -18,12 +18,17 @@ export interface RealProductData {
 }
 
 // USDA Food Database API integration
-const USDA_API_KEY = process.env.USDA_API_KEY || 'DEMO_KEY'; // Free tier
+const USDA_API_KEY = process.env.USDA_API_KEY;
 const USDA_BASE_URL = 'https://api.nal.usda.gov/fdc/v1';
 
 export class ProductDataAPI {
   // Get real product data from USDA database
   static async getUSDAProductData(searchTerm: string): Promise<RealProductData | null> {
+    if (!USDA_API_KEY) {
+      console.warn('USDA_API_KEY not configured - returning null');
+      return null;
+    }
+
     try {
       const response = await fetch(
         `${USDA_BASE_URL}/foods/search?api_key=${USDA_API_KEY}&query=${encodeURIComponent(searchTerm)}&pageSize=1&dataType=Foundation,SR Legacy`

@@ -144,24 +144,29 @@ Commodity-AI/
 ## 🔧 Configuration
 
 ### Environment Variables
+See [SECURITY.md](./SECURITY.md) for detailed security guidelines and environment variable setup.
+
+**Important:** Never commit actual API keys to the repository. Use the provided `.env.example` template.
+
 ```bash
-# Database
-DATABASE_URL=postgresql://user:pass@localhost:5432/commodity_ai
+# Copy the example file
+cp .env.example .env.local
 
-# Redis
-REDIS_URL=redis://localhost:6379
+# Edit with your actual values
+# All API keys should be stored in .env.local
+```
 
-# External APIs
-USDA_API_KEY=your_usda_api_key
-POS_API_KEY=your_pos_api_key
-SUPPLIER_API_KEY=your_supplier_api_key
+### Quick Setup
+```bash
+# Install dependencies
+pnpm install
 
-# AI Services
-OLLAMA_HOST=http://localhost:11434
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your actual API keys
 
-# Notifications
-EMAIL_SERVICE_KEY=your_email_service_key
-SMS_SERVICE_KEY=your_sms_service_key
+# Start development server
+pnpm dev
 ```
 
 ## 📈 API Endpoints
